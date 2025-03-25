@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"log"
 	"net"
+	"sync"
 
 	"github.com/ametow/xpos/events"
 )
@@ -11,6 +12,7 @@ import (
 type Tunnel struct {
 	agentConn   net.Conn
 	connections map[uint16]net.Conn
+	mutex       sync.RWMutex
 	privateAddr string
 	publicAddr  string
 }

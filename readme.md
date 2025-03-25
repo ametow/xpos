@@ -1,0 +1,1 @@
+# Welcome to another awesome tool, written in Go
