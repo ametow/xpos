@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/binary"
+	"flag"
 	"fmt"
 	"log"
 	"net"
@@ -15,6 +16,8 @@ var PrivateAddr string
 var LocalAddr string = "localhost:7777"
 
 func main() {
+	flag.Parse()
+
 	conn, err := net.Dial("tcp", BASEURL)
 	if err != nil {
 		panic(err)
