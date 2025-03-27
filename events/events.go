@@ -17,8 +17,9 @@ type TunnelRequest struct {
 }
 
 type TunnelCreated struct {
-	PublicAddr  string
-	PrivateAddr string
+	Hostname            string
+	PublicListenerPort  string
+	PrivateListenerPort string
 }
 
 type NewConnection struct {
@@ -75,12 +76,12 @@ func Bind(src net.Conn, dst net.Conn) error {
 	defer dst.Close()
 	buf := make([]byte, 4096)
 	for {
-		_ = src.SetReadDeadline(time.Now().Add(time.Second))
+		_ = src.SetReadDeadline(time.Now().Add(time.Second * 10))
 		n, err := src.Read(buf)
 		if err == io.EOF {
 			break
 		}
-		_ = dst.SetWriteDeadline(time.Now().Add(time.Second))
+		_ = dst.SetWriteDeadline(time.Now().Add(time.Second * 10))
 		_, err = dst.Write(buf[:n])
 		if err != nil {
 			return err

@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"log"
 	"net"
+	"strconv"
 	"sync"
 
 	"github.com/ametow/xpos/events"
@@ -33,16 +34,16 @@ func (tn *Tunnel) PublicLn() string {
 }
 
 func (tn *Tunnel) Init() {
-	pubLn, err := net.Listen("tcp", "127.0.0.1:")
+	pubLn, err := net.Listen("tcp", "0.0.0.0:")
 	if err != nil {
 		log.Fatal(err)
 	}
-	privLn, err := net.Listen("tcp", "127.0.0.1:")
+	privLn, err := net.Listen("tcp", "0.0.0.0:")
 	if err != nil {
 		log.Fatal(err)
 	}
-	tn.privateAddr = privLn.Addr().(*net.TCPAddr).AddrPort().String()
-	tn.publicAddr = pubLn.Addr().(*net.TCPAddr).AddrPort().String()
+	tn.privateAddr = strconv.Itoa(privLn.Addr().(*net.TCPAddr).Port)
+	tn.publicAddr = strconv.Itoa(pubLn.Addr().(*net.TCPAddr).Port)
 
 	go processListener(privLn, tn.privConnHandler)
 	go processListener(pubLn, tn.publicConnHandler)

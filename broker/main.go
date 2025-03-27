@@ -10,7 +10,7 @@ import (
 )
 
 func main() {
-	ln, err := net.Listen("tcp", ":4321")
+	ln, err := net.Listen("tcp4", "0.0.0.0:4321")
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -44,8 +44,9 @@ func processConn(conn net.Conn) {
 
 	tunnelCreatedEvent := &events.Event[events.TunnelCreated]{
 		Data: &events.TunnelCreated{
-			PublicAddr:  tunnel.PublicLn(),
-			PrivateAddr: tunnel.PrivateLn(),
+			Hostname:            "34.229.0.117",
+			PublicListenerPort:  tunnel.PublicLn(),
+			PrivateListenerPort: tunnel.PrivateLn(),
 		},
 	}
 
