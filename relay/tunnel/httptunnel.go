@@ -3,6 +3,7 @@ package tunnel
 import (
 	"log"
 	"net"
+	"sync"
 )
 
 type HttpTunnel struct {
@@ -15,8 +16,8 @@ func NewHttpTunnel(hostname string, conn net.Conn) Tunnel {
 		hostname: hostname,
 		TcpTunnel: TcpTunnel{
 			AgentConn:     conn,
-			connections:   make(map[string]net.Conn),
-			initialBuffer: make(map[string][]byte),
+			connections:   sync.Map{},
+			initialBuffer: sync.Map{},
 		},
 	}
 }
@@ -40,14 +41,13 @@ func (tn *HttpTunnel) Init() {
 }
 
 func (tn *HttpTunnel) Close() {
-	for port, cn := range tn.connections {
-		cn.Close()
-		delete(tn.connections, port)
-		delete(tn.initialBuffer, port)
-	}
+	tn.connections.Range(func(key, value any) bool {
+		value.(net.Conn).Close()
+		return true
+	})
 }
 
 func (tn *HttpTunnel) PublicConnHandler(conn net.Conn, buf []byte) {
-	tn.initialBuffer[conn.RemoteAddr().String()] = buf
+	tn.initialBuffer.Store(conn.RemoteAddr().String(), buf)
 	tn.publicConnHandler(conn)
 }

@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bufio"
 	"errors"
 	"fmt"
 	"io"
@@ -164,46 +163,4 @@ func parseHost(r io.Reader) (string, []byte, error) {
 		return "", buffer, fmt.Errorf("no host detected")
 	}
 	return strings.TrimSpace(text[:right]), buffer, nil
-}
-
-func extractHost(conn net.Conn) (string, error) {
-	// Create a buffered reader to read from the connection
-	reader := bufio.NewReader(conn)
-
-	// Read the first line of the HTTP request (Request Line)
-	line, _, err := reader.ReadLine()
-	if err != nil {
-		return "", fmt.Errorf("failed to read request line: %v", err)
-	}
-
-	// Check if the request line contains an HTTP method (GET, POST, etc.) and the path
-	// Format of request line: METHOD /path HTTP/1.1
-	parts := strings.Fields(string(line))
-	if len(parts) < 2 {
-		return "", fmt.Errorf("invalid HTTP request line: %s", line)
-	}
-
-	// Read the rest of the headers to find the Host header
-	for {
-		// Read each header line
-		line, _, err = reader.ReadLine()
-		if err != nil {
-			return "", fmt.Errorf("failed to read header: %v", err)
-		}
-
-		// Check for an empty line which indicates the end of headers
-		if len(line) == 0 {
-			break
-		}
-
-		// Check if this line is the "Host" header
-		header := string(line)
-		if strings.HasPrefix(header, "Host:") {
-			// Extract and return the value of the Host header
-			host := strings.TrimSpace(header[len("Host:"):])
-			return host, nil
-		}
-	}
-
-	return "", fmt.Errorf("Host header not found")
 }

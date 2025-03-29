@@ -12,20 +12,18 @@ import (
 )
 
 type TcpTunnel struct {
-	AgentConn      net.Conn
-	connections    map[string]net.Conn
-	agentConnMutex sync.Mutex
-	connMutex      sync.Mutex
-	privateAddr    string
-	publicAddr     string
-	initialBuffer  map[string][]byte
+	AgentConn     net.Conn
+	connections   sync.Map
+	privateAddr   string
+	publicAddr    string
+	initialBuffer sync.Map
 }
 
 func NewTcpTunnel(conn net.Conn) Tunnel {
 	return &TcpTunnel{
 		AgentConn:     conn,
-		connections:   make(map[string]net.Conn),
-		initialBuffer: make(map[string][]byte),
+		connections:   sync.Map{},
+		initialBuffer: sync.Map{},
 	}
 }
 
@@ -61,15 +59,12 @@ func (tn *TcpTunnel) publicConnHandler(conn net.Conn) error {
 	newConnEvent := events.NewConnectionEvent()
 	newConnEvent.Data.ClientAddr = clientAddr
 
-	tn.agentConnMutex.Lock()
-	defer tn.agentConnMutex.Unlock()
-
 	err := newConnEvent.Write(tn.AgentConn)
 	if err != nil {
 		conn.Close()
 		return err
 	}
-	tn.connections[clientAddr] = conn
+	tn.connections.Store(clientAddr, conn)
 	return nil
 }
 
@@ -84,35 +79,33 @@ func (tn *TcpTunnel) privConnHandler(conn net.Conn) error {
 
 	ip := net.IP(buf[:4])                       // First ip 4 bytes
 	port := binary.LittleEndian.Uint16(buf[4:]) // 2 bytes for port
-
 	addr := net.JoinHostPort(ip.String(), fmt.Sprintf("%d", port))
-	log.Println("parsed addr: ", addr)
 
-	tn.connMutex.Lock()
-	clientConn, exists := tn.connections[addr]
+	clientConn, exists := tn.connections.Load(addr)
 	if !exists {
 		return errors.New("client conn not found")
 	}
-	defer clientConn.Close()
-	delete(tn.connections, addr)
+	defer clientConn.(net.Conn).Close()
+	tn.connections.Delete(addr)
 
-	tn.connMutex.Unlock()
+	defer tn.initialBuffer.Delete(addr)
 
-	defer delete(tn.initialBuffer, addr)
+	initBuf, ok := tn.initialBuffer.Load(addr)
 
-	if len(tn.initialBuffer[addr]) > 0 {
-		if _, err := conn.Write(tn.initialBuffer[addr]); err != nil {
+	if ok && len(initBuf.([]byte)) > 0 {
+		if _, err := conn.Write(initBuf.([]byte)); err != nil {
 			return err
 		}
 	}
 
-	go events.Bind(conn, clientConn)
-	events.Bind(clientConn, conn)
+	go events.Bind(conn, clientConn.(net.Conn))
+	events.Bind(clientConn.(net.Conn), conn)
 	return nil
 }
 
 func (tn *TcpTunnel) Close() {
-	for _, cn := range tn.connections {
-		cn.Close()
-	}
+	tn.connections.Range(func(key, value any) bool {
+		value.(net.Conn).Close()
+		return true
+	})
 }
