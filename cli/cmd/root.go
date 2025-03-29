@@ -31,6 +31,11 @@ func Execute() {
 	}
 }
 
+const BASEURL = "localhost:4321"
+
+var PrivateAddr string
+var LocalAddr string
+
 func init() {
 	// cobra.OnInitialize(initConfig)
 	// rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "xpos", "config file (default is $HOME/.xpos.yaml)")

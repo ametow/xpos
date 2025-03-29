@@ -1,1 +1,8 @@
-xpos
+.idea
+.DS_Store
+vendor/
+package.json
+
+bin/
+cli/xpos
+server/xpos-server

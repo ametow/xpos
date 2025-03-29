@@ -1,23 +1,21 @@
 package cmd
 
 import (
-	"encoding/binary"
 	"fmt"
 	"log"
 	"net"
-	"net/netip"
 
 	"github.com/ametow/xpos/events"
 	"github.com/spf13/cobra"
 )
 
 func init() {
-	rootCmd.AddCommand(tcpCommand)
+	rootCmd.AddCommand(httpCommand)
 }
 
-var tcpCommand = &cobra.Command{
-	Use:   "tcp [port]",
-	Short: "Forward tcp traffic",
+var httpCommand = &cobra.Command{
+	Use:   "http [port]",
+	Short: "Forward http traffic",
 	Long:  ``,
 	Args:  cobra.MinimumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
@@ -60,43 +58,4 @@ var tcpCommand = &cobra.Command{
 			go handleConn(newConnectionEvent)
 		}
 	},
-}
-
-func handleConn(client *events.Event[events.NewConnection]) {
-	fmt.Println("new connection received!", client.Data.ClientAddr)
-	// local dial
-	localConn, err := net.Dial("tcp", LocalAddr)
-	if err != nil {
-		log.Println(err)
-		return
-	}
-	defer localConn.Close()
-	// remote dial
-	remoteConn, err := net.Dial("tcp", PrivateAddr)
-	if err != nil {
-		log.Println(err)
-		return
-	}
-	defer remoteConn.Close()
-
-	addr, err := netip.ParseAddrPort(client.Data.ClientAddr)
-	if err != nil {
-		return
-	}
-
-	ip := addr.Addr().As4()
-	port := addr.Port()
-	buf := make([]byte, 6) // 4 for ip, 2 for port
-
-	copy(buf, ip[:])
-	binary.LittleEndian.PutUint16(buf[4:], uint16(port))
-
-	_, err = remoteConn.Write(buf)
-	if err != nil {
-		log.Println(err)
-		return
-	}
-
-	go events.Bind(localConn, remoteConn)
-	events.Bind(remoteConn, localConn)
 }

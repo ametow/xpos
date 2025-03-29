@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"encoding/gob"
 	"io"
+	"log"
 	"net"
 	"time"
 )
@@ -13,7 +14,26 @@ type Event[Type TunnelCreated | TunnelRequest | NewConnection] struct {
 	Data *Type
 }
 
+func NewTunnelRequest() *Event[TunnelRequest] {
+	return &Event[TunnelRequest]{
+		Data: &TunnelRequest{},
+	}
+}
+
+func NewTunnelCreated() *Event[TunnelCreated] {
+	return &Event[TunnelCreated]{
+		Data: &TunnelCreated{},
+	}
+}
+
+func NewConnectionEvent() *Event[NewConnection] {
+	return &Event[NewConnection]{
+		Data: &NewConnection{},
+	}
+}
+
 type TunnelRequest struct {
+	Protocol string
 }
 
 type TunnelCreated struct {
@@ -23,8 +43,7 @@ type TunnelCreated struct {
 }
 
 type NewConnection struct {
-	ClientIP   net.IP
-	ClientPort uint16
+	ClientAddr string
 }
 
 func (e *Event[Type]) Read(conn net.Conn) error {
@@ -74,19 +93,30 @@ func (e *Event[Type]) decode(data []byte) error {
 func Bind(src net.Conn, dst net.Conn) error {
 	defer src.Close()
 	defer dst.Close()
-	buf := make([]byte, 4096)
-	for {
-		_ = src.SetReadDeadline(time.Now().Add(time.Second * 10))
-		n, err := src.Read(buf)
-		if err == io.EOF {
-			break
-		}
-		_ = dst.SetWriteDeadline(time.Now().Add(time.Second * 10))
-		_, err = dst.Write(buf[:n])
-		if err != nil {
-			return err
-		}
-		time.Sleep(10 * time.Millisecond)
+	_ = src.SetReadDeadline(time.Now().Add(time.Second * 10))
+	_ = dst.SetReadDeadline(time.Now().Add(time.Second * 10))
+	n, err := io.Copy(src, dst)
+	if err != nil {
+		return err
 	}
+	log.Println(n)
+
+	// buf := make([]byte, 4096)
+	// for {
+	// 	_ = src.SetReadDeadline(time.Now().Add(time.Second * 10))
+	// 	n, err := src.Read(buf)
+	// 	log.Println("read: ", n)
+	// 	if err == io.EOF {
+	// 		// log.Println(err)
+	// 		break
+	// 	}
+	// 	_ = dst.SetWriteDeadline(time.Now().Add(time.Second * 10))
+	// 	n, err = dst.Write(buf[:n])
+	// 	if err != nil {
+	// 		// log.Println(err)
+	// 		return err
+	// 	}
+	// 	log.Println("written: ", n)
+	// }
 	return nil
 }
