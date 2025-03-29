@@ -5,7 +5,6 @@ import (
 	"encoding/binary"
 	"encoding/gob"
 	"io"
-	"log"
 	"net"
 	"time"
 )
@@ -95,11 +94,10 @@ func Bind(src net.Conn, dst net.Conn) error {
 	defer dst.Close()
 	_ = src.SetReadDeadline(time.Now().Add(time.Second * 10))
 	_ = dst.SetReadDeadline(time.Now().Add(time.Second * 10))
-	n, err := io.Copy(src, dst)
+	_, err := io.Copy(src, dst)
 	if err != nil {
 		return err
 	}
-	log.Println(n)
 
 	// buf := make([]byte, 4096)
 	// for {

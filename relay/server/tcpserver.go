@@ -26,6 +26,7 @@ func (s *TcpServer) Init() error {
 		return err
 	}
 	s.ln = ln
+	log.Printf("%s listening on: %s\n", s.name, ln.Addr().String())
 	return nil
 }
 

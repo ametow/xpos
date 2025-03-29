@@ -1,12 +1,11 @@
 package cmd
 
 import (
-	"encoding/binary"
 	"fmt"
 	"log"
 	"net"
-	"net/netip"
 
+	"github.com/ametow/xpos/cli/handler"
 	"github.com/ametow/xpos/events"
 	"github.com/spf13/cobra"
 )
@@ -21,9 +20,9 @@ var tcpCommand = &cobra.Command{
 	Long:  ``,
 	Args:  cobra.MinimumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		LocalAddr = "127.0.0.1:" + args[0]
+		localAddr := net.JoinHostPort("127.0.0.1", args[0])
 
-		conn, err := net.Dial("tcp", BASEURL)
+		conn, err := net.Dial("tcp4", BASEURL)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -45,8 +44,8 @@ var tcpCommand = &cobra.Command{
 		fmt.Println("Started listening on public network.")
 		fmt.Printf("Public addr: %s\n", tunnedCreated.Data.PublicListenerPort)
 		fmt.Printf("Private addr: %s\n", tunnedCreated.Data.PrivateListenerPort)
-		// PrivateAddr = net.JoinHostPort(tunnedCreated.Data.Hostname, tunnedCreated.Data.PrivateListenerPort)
-		PrivateAddr = tunnedCreated.Data.PrivateListenerPort
+		// privateAddr = net.JoinHostPort(tunnedCreated.Data.Hostname, tunnedCreated.Data.PrivateListenerPort)
+		privateAddr := tunnedCreated.Data.PrivateListenerPort
 
 		for {
 			newConnectionEvent := events.NewConnectionEvent()
@@ -56,45 +55,11 @@ var tcpCommand = &cobra.Command{
 			}
 
 			go func() {
-				err := handleConn(newConnectionEvent)
+				err := handler.HandleConn(newConnectionEvent, localAddr, privateAddr)
 				if err != nil {
 					log.Println(err)
 				}
 			}()
 		}
 	},
-}
-
-func handleConn(client *events.Event[events.NewConnection]) error {
-	localConn, err := net.Dial("tcp", LocalAddr)
-	if err != nil {
-		return err
-	}
-	defer localConn.Close()
-	remoteConn, err := net.Dial("tcp", PrivateAddr)
-	if err != nil {
-		return err
-	}
-	defer remoteConn.Close()
-
-	addr, err := netip.ParseAddrPort(client.Data.ClientAddr)
-	if err != nil {
-		return err
-	}
-
-	ip := addr.Addr().As4()
-	port := addr.Port()
-	buf := make([]byte, 6) // 4 for ip, 2 for port
-
-	copy(buf, ip[:])
-	binary.LittleEndian.PutUint16(buf[4:], uint16(port))
-
-	_, err = remoteConn.Write(buf)
-	if err != nil {
-		return err
-	}
-
-	go events.Bind(localConn, remoteConn)
-	events.Bind(remoteConn, localConn)
-	return nil
 }

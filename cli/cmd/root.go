@@ -9,19 +9,25 @@ import (
 	"github.com/spf13/viper"
 )
 
+const BASEURL = "localhost:9876"
+
 var (
-	userLicense = ""
-	cfgFile     = ""
+	cfgFile = ".xpos"
+	rootCmd = &cobra.Command{
+		Use:               "xpos",
+		Short:             "Xpos is coolest lib",
+		Long:              `Xpos is coolest lib`,
+		CompletionOptions: cobra.CompletionOptions{DisableDefaultCmd: true},
+		Run: func(cmd *cobra.Command, args []string) {
+			tcpCommand.Usage()
+		},
+	}
 )
 
-var rootCmd = &cobra.Command{
-	Use:               "xpos",
-	Short:             "Xpos is coolest lib",
-	Long:              `Xpos is coolest lib`,
-	CompletionOptions: cobra.CompletionOptions{DisableDefaultCmd: true},
-	Run: func(cmd *cobra.Command, args []string) {
-		tcpCommand.Usage()
-	},
+func init() {
+	// cobra.OnInitialize(initConfig)
+	// rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "xpos", "config file (default is $HOME/.xpos.yaml)")
+	// viper.BindPFlag("author", rootCmd.PersistentFlags().Lookup("author"))
 }
 
 func Execute() {
@@ -29,17 +35,6 @@ func Execute() {
 		fmt.Println(err)
 		os.Exit(1)
 	}
-}
-
-const BASEURL = "localhost:9876"
-
-var PrivateAddr string
-var LocalAddr string
-
-func init() {
-	// cobra.OnInitialize(initConfig)
-	// rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "xpos", "config file (default is $HOME/.xpos.yaml)")
-	// viper.BindPFlag("author", rootCmd.PersistentFlags().Lookup("author"))
 }
 
 func initConfig() {

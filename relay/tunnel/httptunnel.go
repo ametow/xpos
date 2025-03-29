@@ -30,13 +30,13 @@ func (tn *HttpTunnel) PublicAddr() string {
 }
 
 func (tn *HttpTunnel) Init() {
-	privLn, err := net.Listen("tcp4", "localhost:")
+	privateListener, err := net.Listen("tcp4", "localhost:")
 	if err != nil {
 		log.Println(err)
 		return
 	}
-	tn.privateAddr = privLn.Addr().String()
-	go processListener(privLn, tn.privConnHandler)
+	tn.privateAddr = privateListener.Addr().String()
+	go processListener(privateListener, tn.privConnHandler)
 }
 
 func (tn *HttpTunnel) Close() {
@@ -47,6 +47,7 @@ func (tn *HttpTunnel) Close() {
 	}
 }
 
-func (tn *HttpTunnel) PublicConnHandler(conn net.Conn) {
+func (tn *HttpTunnel) PublicConnHandler(conn net.Conn, buf []byte) {
+	tn.initialBuffer[conn.RemoteAddr().String()] = buf
 	tn.publicConnHandler(conn)
 }

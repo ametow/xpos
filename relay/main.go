@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"log"
 	"os"
 	"os/signal"
@@ -13,8 +12,6 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-
-	fmt.Println("Started listening on :9876")
 
 	ch := make(chan os.Signal, 1)
 	signal.Notify(ch, os.Interrupt)

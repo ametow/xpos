@@ -70,7 +70,6 @@ func (tn *TcpTunnel) publicConnHandler(conn net.Conn) error {
 		return err
 	}
 	tn.connections[clientAddr] = conn
-	tn.initialBuffer[clientAddr] = nil
 	return nil
 }
 
