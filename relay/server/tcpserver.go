@@ -21,7 +21,7 @@ func (s TcpServer) Close() {
 }
 
 func (s *TcpServer) Init() error {
-	ln, err := net.Listen("tcp4", fmt.Sprintf("%s:%d", "0.0.0.0", s.port))
+	ln, err := net.Listen("tcp4", fmt.Sprintf("%s:%d", "localhost", s.port))
 	if err != nil {
 		return err
 	}

@@ -57,11 +57,9 @@ func (tn *TcpTunnel) Init() {
 
 func (tn *TcpTunnel) publicConnHandler(conn net.Conn) error {
 	clientAddr := conn.RemoteAddr().String()
-	newConnEvent := &events.Event[events.NewConnection]{
-		Data: &events.NewConnection{
-			ClientAddr: clientAddr,
-		},
-	}
+
+	newConnEvent := events.NewConnectionEvent()
+	newConnEvent.Data.ClientAddr = clientAddr
 
 	tn.agentConnMutex.Lock()
 	defer tn.agentConnMutex.Unlock()

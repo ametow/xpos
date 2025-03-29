@@ -30,7 +30,7 @@ func (tn *HttpTunnel) PublicAddr() string {
 }
 
 func (tn *HttpTunnel) Init() {
-	privLn, err := net.Listen("tcp", "0.0.0.0:")
+	privLn, err := net.Listen("tcp4", "localhost:")
 	if err != nil {
 		log.Println(err)
 		return
