@@ -14,13 +14,13 @@ type Event[Type TunnelCreated | TunnelRequest | NewConnection] struct {
 	Data *Type
 }
 
-func NewTunnelRequest() *Event[TunnelRequest] {
+func NewTunnelRequestEvent() *Event[TunnelRequest] {
 	return &Event[TunnelRequest]{
 		Data: &TunnelRequest{},
 	}
 }
 
-func NewTunnelCreated() *Event[TunnelCreated] {
+func NewTunnelCreatedEvent() *Event[TunnelCreated] {
 	return &Event[TunnelCreated]{
 		Data: &TunnelCreated{},
 	}

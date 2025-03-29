@@ -18,7 +18,6 @@ type Xpos struct {
 	eventListener     *server.TcpServer
 	publicHttpGateway *server.TcpServer
 	httpTunnels       *sync.Map
-	userTunnels       *sync.Map
 }
 
 func NewXpos() *Xpos {
@@ -27,7 +26,6 @@ func NewXpos() *Xpos {
 		eventListener:     server.New(9876, "event_listener_service"),
 		publicHttpGateway: server.New(8080, "public_http_gateway"),
 		httpTunnels:       &sync.Map{},
-		userTunnels:       &sync.Map{},
 	}
 	return x
 }
@@ -57,7 +55,7 @@ func (x *Xpos) Close() {
 func (x *Xpos) serveEvents(conn net.Conn) error {
 	defer conn.Close()
 
-	req := events.NewTunnelRequest()
+	req := events.NewTunnelRequestEvent()
 	err := req.Read(conn)
 	if err != nil {
 		return err
@@ -87,15 +85,10 @@ func (x *Xpos) serveEvents(conn net.Conn) error {
 	tn.Init()
 	defer tn.Close()
 
-	x.userTunnels.Store(user, tn)
-
-	tunnelCreatedEvent := &events.Event[events.TunnelCreated]{
-		Data: &events.TunnelCreated{
-			Hostname:            x.hostname,
-			PublicListenerPort:  tn.PublicAddr(),
-			PrivateListenerPort: tn.PrivateAddr(),
-		},
-	}
+	tunnelCreatedEvent := events.NewTunnelCreatedEvent()
+	tunnelCreatedEvent.Data.Hostname = x.hostname
+	tunnelCreatedEvent.Data.PublicListenerPort = tn.PublicAddr()
+	tunnelCreatedEvent.Data.PrivateListenerPort = tn.PrivateAddr()
 
 	err = tunnelCreatedEvent.Write(conn)
 	if err != nil {

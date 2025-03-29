@@ -29,17 +29,13 @@ var tcpCommand = &cobra.Command{
 		}
 		defer conn.Close()
 
-		request := &events.Event[events.TunnelRequest]{
-			Data: &events.TunnelRequest{},
-		}
+		request := events.NewTunnelRequestEvent()
 		err = request.Write(conn)
 		if err != nil {
 			log.Fatal("error requesting tunnel:", err)
 		}
 
-		tunnedCreated := &events.Event[events.TunnelCreated]{
-			Data: &events.TunnelCreated{},
-		}
+		tunnedCreated := events.NewTunnelCreatedEvent()
 		err = tunnedCreated.Read(conn)
 		if err != nil {
 			log.Fatal("error creating tunnel:", err)
@@ -51,37 +47,37 @@ var tcpCommand = &cobra.Command{
 		PrivateAddr = net.JoinHostPort(tunnedCreated.Data.Hostname, tunnedCreated.Data.PrivateListenerPort)
 
 		for {
-			newConnectionEvent := &events.Event[events.NewConnection]{Data: &events.NewConnection{}}
+			newConnectionEvent := events.NewConnectionEvent()
 			err := newConnectionEvent.Read(conn)
 			if err != nil {
 				log.Fatal("error on new connection receive: ", err)
 			}
 
-			go handleConn(newConnectionEvent)
+			go func() {
+				err := handleConn(newConnectionEvent)
+				if err != nil {
+					log.Println(err)
+				}
+			}()
 		}
 	},
 }
 
-func handleConn(client *events.Event[events.NewConnection]) {
-	fmt.Println("new connection received!", client.Data.ClientAddr)
-	// local dial
+func handleConn(client *events.Event[events.NewConnection]) error {
 	localConn, err := net.Dial("tcp", LocalAddr)
 	if err != nil {
-		log.Println(err)
-		return
+		return err
 	}
 	defer localConn.Close()
-	// remote dial
 	remoteConn, err := net.Dial("tcp", PrivateAddr)
 	if err != nil {
-		log.Println(err)
-		return
+		return err
 	}
 	defer remoteConn.Close()
 
 	addr, err := netip.ParseAddrPort(client.Data.ClientAddr)
 	if err != nil {
-		return
+		return err
 	}
 
 	ip := addr.Addr().As4()
@@ -93,10 +89,10 @@ func handleConn(client *events.Event[events.NewConnection]) {
 
 	_, err = remoteConn.Write(buf)
 	if err != nil {
-		log.Println(err)
-		return
+		return err
 	}
 
 	go events.Bind(localConn, remoteConn)
 	events.Bind(remoteConn, localConn)
+	return nil
 }
