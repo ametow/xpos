@@ -12,14 +12,18 @@ type Tunnel interface {
 	Close()
 }
 
-func processListener(ln net.Listener, handler func(net.Conn)) {
+func processListener(ln net.Listener, handler func(net.Conn) error) error {
 	defer ln.Close()
 	for {
 		conn, err := ln.Accept()
 		if err != nil {
-			log.Println(err)
-			return
+			return err
 		}
-		go handler(conn)
+		go func() {
+			if err := handler(conn); err != nil {
+				log.Println(err)
+				return
+			}
+		}()
 	}
 }

@@ -2,9 +2,10 @@ package tunnel
 
 import (
 	"encoding/binary"
+	"errors"
+	"fmt"
 	"log"
 	"net"
-	"strconv"
 	"sync"
 
 	"github.com/ametow/xpos/events"
@@ -37,12 +38,12 @@ func (tn *TcpTunnel) PublicAddr() string {
 }
 
 func (tn *TcpTunnel) Init() {
-	pubLn, err := net.Listen("tcp", "0.0.0.0:")
+	pubLn, err := net.Listen("tcp4", "localhost:")
 	if err != nil {
 		log.Println(err)
 		return
 	}
-	privLn, err := net.Listen("tcp", "0.0.0.0:")
+	privLn, err := net.Listen("tcp4", "localhost:")
 	if err != nil {
 		log.Println(err)
 		return
@@ -54,7 +55,7 @@ func (tn *TcpTunnel) Init() {
 	go processListener(pubLn, tn.publicConnHandler)
 }
 
-func (tn *TcpTunnel) publicConnHandler(conn net.Conn) {
+func (tn *TcpTunnel) publicConnHandler(conn net.Conn) error {
 	clientAddr := conn.RemoteAddr().String()
 	newConnEvent := &events.Event[events.NewConnection]{
 		Data: &events.NewConnection{
@@ -68,33 +69,32 @@ func (tn *TcpTunnel) publicConnHandler(conn net.Conn) {
 	err := newConnEvent.Write(tn.AgentConn)
 	if err != nil {
 		conn.Close()
-		log.Println(err)
-		return
+		return err
 	}
 	tn.connections[clientAddr] = conn
 	tn.initialBuffer[clientAddr] = nil
+	return nil
 }
 
-func (tn *TcpTunnel) privConnHandler(conn net.Conn) {
+func (tn *TcpTunnel) privConnHandler(conn net.Conn) error {
 	defer conn.Close()
 
 	buf := make([]byte, 6)
 	_, err := conn.Read(buf)
 	if err != nil {
-		log.Println(err)
-		return
+		return err
 	}
 
 	ip := net.IP(buf[:4])                       // First ip 4 bytes
 	port := binary.LittleEndian.Uint16(buf[4:]) // 2 bytes for port
 
-	addr := net.JoinHostPort(ip.String(), strconv.Itoa(int(port)))
+	addr := net.JoinHostPort(ip.String(), fmt.Sprintf("%d", port))
+	log.Println("parsed addr: ", addr)
 
 	tn.connMutex.Lock()
 	clientConn, exists := tn.connections[addr]
 	if !exists {
-		log.Println("client conn not found")
-		return
+		return errors.New("client conn not found")
 	}
 	defer clientConn.Close()
 	delete(tn.connections, addr)
@@ -105,19 +105,17 @@ func (tn *TcpTunnel) privConnHandler(conn net.Conn) {
 
 	if len(tn.initialBuffer[addr]) > 0 {
 		if _, err := conn.Write(tn.initialBuffer[addr]); err != nil {
-			log.Println(err)
-			return
+			return err
 		}
 	}
 
 	go events.Bind(conn, clientConn)
 	events.Bind(clientConn, conn)
+	return nil
 }
 
 func (tn *TcpTunnel) Close() {
-	for port, cn := range tn.connections {
+	for _, cn := range tn.connections {
 		cn.Close()
-		delete(tn.connections, port)
-		delete(tn.initialBuffer, port)
 	}
 }

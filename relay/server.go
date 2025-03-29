@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"errors"
 	"fmt"
+	"log"
 	"net"
 	"strings"
 	"sync"
@@ -64,6 +65,7 @@ func (x *Xpos) serveEvents(conn net.Conn) error {
 	var user, hostname string
 
 	// TODO(set user here)
+	user = "arslan"
 
 	hostname = user + "." + x.hostname
 
@@ -119,6 +121,7 @@ func (x *Xpos) handleHttpGtwConnections(con net.Conn) error {
 	}
 
 	host := strings.TrimSpace(line[len("Host:"):])
+	log.Println("request for host: ", host)
 
 	tn, ok := x.httpTunnels.Load(host)
 	if !ok {

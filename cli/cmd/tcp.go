@@ -30,6 +30,7 @@ var tcpCommand = &cobra.Command{
 		defer conn.Close()
 
 		request := events.NewTunnelRequestEvent()
+		request.Data.Protocol = "tcp"
 		err = request.Write(conn)
 		if err != nil {
 			log.Fatal("error requesting tunnel:", err)
@@ -42,9 +43,10 @@ var tcpCommand = &cobra.Command{
 		}
 
 		fmt.Println("Started listening on public network.")
-		fmt.Printf("Public addr: http://%s:%s\n", tunnedCreated.Data.Hostname, tunnedCreated.Data.PublicListenerPort)
-		fmt.Printf("Private addr: http://%s:%s\n", tunnedCreated.Data.Hostname, tunnedCreated.Data.PrivateListenerPort)
-		PrivateAddr = net.JoinHostPort(tunnedCreated.Data.Hostname, tunnedCreated.Data.PrivateListenerPort)
+		fmt.Printf("Public addr: %s\n", tunnedCreated.Data.PublicListenerPort)
+		fmt.Printf("Private addr: %s\n", tunnedCreated.Data.PrivateListenerPort)
+		// PrivateAddr = net.JoinHostPort(tunnedCreated.Data.Hostname, tunnedCreated.Data.PrivateListenerPort)
+		PrivateAddr = tunnedCreated.Data.PrivateListenerPort
 
 		for {
 			newConnectionEvent := events.NewConnectionEvent()
