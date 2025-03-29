@@ -16,28 +16,28 @@ import (
 )
 
 type Xpos struct {
-	hostname          string
-	eventListener     *server.TcpServer
-	publicHttpGateway *server.TcpServer
-	httpTunnels       *sync.Map
+	hostname    string
+	eventServer *server.TcpServer
+	httpGateway *server.TcpServer
+	httpTunnels *sync.Map
 }
 
 func NewXpos() *Xpos {
 	x := &Xpos{
-		hostname:          "localhost",
-		eventListener:     server.New(9876, "event_listener_service"),
-		publicHttpGateway: server.New(8080, "public_http_gateway"),
-		httpTunnels:       &sync.Map{},
+		hostname:    "localhost",
+		eventServer: server.New(9876, "event_server"),
+		httpGateway: server.New(8080, "http_gateway"),
+		httpTunnels: &sync.Map{},
 	}
 	return x
 }
 
 func (x *Xpos) Init() error {
-	if err := x.eventListener.Init(); err != nil {
+	if err := x.eventServer.Init(); err != nil {
 		return err
 	}
 
-	if err := x.publicHttpGateway.Init(); err != nil {
+	if err := x.httpGateway.Init(); err != nil {
 		return err
 	}
 
@@ -46,13 +46,13 @@ func (x *Xpos) Init() error {
 
 func (x *Xpos) Start() {
 	go func() {
-		err := x.eventListener.Start(x.serveEvents)
+		err := x.eventServer.Start(x.handleEventServer)
 		if err != nil {
 			log.Println(err)
 		}
 	}()
 	go func() {
-		err := x.publicHttpGateway.Start(x.handleHttpGtwConnections)
+		err := x.httpGateway.Start(x.handleHttpGateway)
 		if err != nil {
 			log.Println(err)
 		}
@@ -60,11 +60,11 @@ func (x *Xpos) Start() {
 }
 
 func (x *Xpos) Close() {
-	x.eventListener.Close()
-	x.publicHttpGateway.Close()
+	x.eventServer.Close()
+	x.httpGateway.Close()
 }
 
-func (x *Xpos) serveEvents(conn net.Conn) error {
+func (x *Xpos) handleEventServer(conn net.Conn) error {
 	defer conn.Close()
 
 	req := events.NewTunnelRequestEvent()
@@ -89,6 +89,7 @@ func (x *Xpos) serveEvents(conn net.Conn) error {
 		}
 		tn = tunnel.NewHttpTunnel(hostname, conn)
 		x.httpTunnels.Store(hostname, tn)
+		defer x.httpTunnels.Delete(hostname)
 	case "tcp":
 		tn = tunnel.NewTcpTunnel(conn)
 	default:
@@ -120,7 +121,7 @@ func (x *Xpos) serveEvents(conn net.Conn) error {
 
 }
 
-func (x *Xpos) handleHttpGtwConnections(con net.Conn) error {
+func (x *Xpos) handleHttpGateway(con net.Conn) error {
 	con.SetReadDeadline(time.Now().Add(3 * time.Second))
 	host, buffer, err := parseHost(con)
 	if err != nil || host == "" {
