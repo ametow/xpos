@@ -4,7 +4,6 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
-	"log"
 	"net"
 	"sync"
 
@@ -35,22 +34,21 @@ func (tn *TcpTunnel) PublicAddr() string {
 	return tn.publicAddr
 }
 
-func (tn *TcpTunnel) Init() {
+func (tn *TcpTunnel) Init() error {
 	pubLn, err := net.Listen("tcp4", "localhost:")
 	if err != nil {
-		log.Println(err)
-		return
+		return err
 	}
 	privLn, err := net.Listen("tcp4", "localhost:")
 	if err != nil {
-		log.Println(err)
-		return
+		return err
 	}
 	tn.privateAddr = privLn.Addr().String()
 	tn.publicAddr = pubLn.Addr().String()
 
 	go processListener(privLn, tn.privConnHandler)
 	go processListener(pubLn, tn.publicConnHandler)
+	return nil
 }
 
 func (tn *TcpTunnel) publicConnHandler(conn net.Conn) error {
@@ -81,11 +79,15 @@ func (tn *TcpTunnel) privConnHandler(conn net.Conn) error {
 	port := binary.LittleEndian.Uint16(buf[4:]) // 2 bytes for port
 	addr := net.JoinHostPort(ip.String(), fmt.Sprintf("%d", port))
 
-	clientConn, exists := tn.connections.Load(addr)
+	clientVal, exists := tn.connections.Load(addr)
 	if !exists {
 		return errors.New("client conn not found")
 	}
-	defer clientConn.(net.Conn).Close()
+	clientConn, ok := clientVal.(net.Conn)
+	if !ok {
+		return errors.New("connection closed")
+	}
+	defer clientConn.Close()
 	tn.connections.Delete(addr)
 
 	defer tn.initialBuffer.Delete(addr)
@@ -98,8 +100,8 @@ func (tn *TcpTunnel) privConnHandler(conn net.Conn) error {
 		}
 	}
 
-	go events.Bind(conn, clientConn.(net.Conn))
-	events.Bind(clientConn.(net.Conn), conn)
+	go events.Bind(conn, clientConn)
+	events.Bind(clientConn, conn)
 	return nil
 }
 

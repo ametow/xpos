@@ -8,7 +8,7 @@ import (
 type Tunnel interface {
 	PrivateAddr() string
 	PublicAddr() string
-	Init()
+	Init() error
 	Close()
 }
 

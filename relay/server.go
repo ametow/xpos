@@ -96,7 +96,9 @@ func (x *Xpos) handleEventServer(conn net.Conn) error {
 		return nil
 	}
 
-	tn.Init()
+	if err := tn.Init(); err != nil {
+		return err
+	}
 	defer tn.Close()
 
 	fmt.Println(x.httpTunnels)

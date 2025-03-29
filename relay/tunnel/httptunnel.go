@@ -1,7 +1,6 @@
 package tunnel
 
 import (
-	"log"
 	"net"
 	"sync"
 )
@@ -18,26 +17,20 @@ func NewHttpTunnel(hostname string, conn net.Conn) Tunnel {
 			AgentConn:     conn,
 			connections:   sync.Map{},
 			initialBuffer: sync.Map{},
+			publicAddr:    hostname,
 		},
 	}
 }
 
-func (tn *HttpTunnel) PrivateAddr() string {
-	return tn.privateAddr
-}
-
-func (tn *HttpTunnel) PublicAddr() string {
-	return tn.hostname
-}
-
-func (tn *HttpTunnel) Init() {
+func (tn *HttpTunnel) Init() error {
 	privateListener, err := net.Listen("tcp4", "localhost:")
 	if err != nil {
-		log.Println(err)
-		return
+		return err
 	}
 	tn.privateAddr = privateListener.Addr().String()
 	go processListener(privateListener, tn.privConnHandler)
+
+	return nil
 }
 
 func (tn *HttpTunnel) Close() {
