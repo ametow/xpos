@@ -1,4 +1,4 @@
-package main
+package xpos
 
 import (
 	"errors"
@@ -22,7 +22,7 @@ type Xpos struct {
 	httpTunnels *sync.Map
 }
 
-func NewXpos() *Xpos {
+func New() *Xpos {
 	x := &Xpos{
 		hostname:    "localhost",
 		eventServer: server.New(9876, "event_server"),

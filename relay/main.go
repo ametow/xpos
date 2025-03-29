@@ -4,10 +4,12 @@ import (
 	"log"
 	"os"
 	"os/signal"
+
+	"github.com/ametow/xpos/relay/xpos"
 )
 
 func main() {
-	xpos := NewXpos()
+	xpos := xpos.New()
 	err := xpos.Init()
 	if err != nil {
 		log.Fatal(err)
