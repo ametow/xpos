@@ -6,28 +6,32 @@ import (
 	"io"
 	"log"
 	"net"
+	"os"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/ametow/xpos/events"
+	"github.com/ametow/xpos/relay/auth"
 	"github.com/ametow/xpos/relay/server"
 	"github.com/ametow/xpos/relay/tunnel"
 )
 
 type Xpos struct {
-	hostname    string
-	eventServer *server.TcpServer
-	httpGateway *server.TcpServer
-	httpTunnels *sync.Map
+	hostname      string
+	eventServer   *server.TcpServer
+	httpGateway   *server.TcpServer
+	httpTunnels   *sync.Map
+	authenticator auth.Authenticator
 }
 
 func New() *Xpos {
 	x := &Xpos{
-		hostname:    "localhost",
-		eventServer: server.New(9876, "event_server"),
-		httpGateway: server.New(8080, "http_gateway"),
-		httpTunnels: &sync.Map{},
+		hostname:      os.Getenv("XPOS_DOMAIN"),
+		eventServer:   server.New(9876, "event_server"),
+		httpGateway:   server.New(8080, "http_gateway"),
+		httpTunnels:   &sync.Map{},
+		authenticator: auth.New(),
 	}
 	return x
 }
@@ -73,19 +77,23 @@ func (x *Xpos) handleEventServer(conn net.Conn) error {
 		return err
 	}
 
-	var user, hostname string
+	if req.Data.Protocol != "tcp" && req.Data.Protocol != "http" {
+		return events.WriteError(conn, "invalid protocol %s", req.Data.Protocol)
+	}
 
-	// TODO(set user here)
-	user = "arslan"
+	user, err := x.authenticator.Authenticate(req.Data.AuthToken)
+	if err != nil {
+		return events.WriteError(conn, "authentication failed %s", "\n\tobtain auth token from https://xpos-it.com/auth\n")
+	}
 
-	hostname = user + "." + x.hostname + ":8080"
+	hostname := fmt.Sprintf("%s.%s", user.Login, x.hostname)
 
 	var tn tunnel.Tunnel
 	switch req.Data.Protocol {
 	case "http":
 		_, ok := x.httpTunnels.Load(hostname)
 		if ok {
-			return errors.New("host is busy")
+			return events.WriteError(conn, "subdomain is busy: %s, try another one", user.Login)
 		}
 		tn = tunnel.NewHttpTunnel(hostname, conn)
 		x.httpTunnels.Store(hostname, tn)
@@ -97,11 +105,11 @@ func (x *Xpos) handleEventServer(conn net.Conn) error {
 	}
 
 	if err := tn.Init(); err != nil {
-		return err
+		return events.WriteError(conn, "failed to create tunnel", err.Error())
 	}
 	defer tn.Close()
 
-	fmt.Println(x.httpTunnels)
+	fmt.Printf("%s [tunnel-created] %s\n", time.Now().Format("2006/01/02 15:04:05"), user.Login)
 
 	tunnelCreatedEvent := events.NewTunnelCreatedEvent()
 	tunnelCreatedEvent.Data.Hostname = x.hostname

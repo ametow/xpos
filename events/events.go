@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"encoding/binary"
 	"encoding/gob"
+	"errors"
+	"fmt"
 	"io"
 	"net"
 	"time"
@@ -32,20 +34,22 @@ func NewConnectionEvent() *Event[NewConnection] {
 }
 
 type TunnelRequest struct {
-	Protocol string
+	Protocol  string
+	AuthToken string
 }
 
 type TunnelCreated struct {
 	Hostname            string
 	PublicListenerPort  string
 	PrivateListenerPort string
+	ErrorMessage        string
 }
 
 type NewConnection struct {
 	ClientAddr string
 }
 
-func (e *Event[Type]) Read(conn net.Conn) error {
+func (e *Event[Type]) Read(conn io.Reader) error {
 	buffer := make([]byte, 2)
 	if _, err := conn.Read(buffer); err != nil {
 		return err
@@ -59,7 +63,7 @@ func (e *Event[Type]) Read(conn net.Conn) error {
 	return err
 }
 
-func (e *Event[Type]) Write(conn net.Conn) error {
+func (e *Event[Type]) Write(conn io.Writer) error {
 	data, err := e.encode()
 	if err != nil {
 		return err
@@ -117,4 +121,14 @@ func Bind(src net.Conn, dst net.Conn) error {
 	// 	log.Println("written: ", n)
 	// }
 	return nil
+}
+
+func WriteError(eventWriter io.Writer, message string, args ...string) error {
+	event := Event[TunnelCreated]{
+		Data: &TunnelCreated{
+			ErrorMessage: fmt.Sprintf(message, args),
+		},
+	}
+	event.Write(eventWriter)
+	return errors.New(event.Data.ErrorMessage)
 }
