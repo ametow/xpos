@@ -35,11 +35,11 @@ func (tn *TcpTunnel) PublicAddr() string {
 }
 
 func (tn *TcpTunnel) Init() error {
-	pubLn, err := net.Listen("tcp4", "localhost:")
+	pubLn, err := net.Listen("tcp4", ":0")
 	if err != nil {
 		return err
 	}
-	privLn, err := net.Listen("tcp4", "localhost:")
+	privLn, err := net.Listen("tcp4", ":0")
 	if err != nil {
 		return err
 	}

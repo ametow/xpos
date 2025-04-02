@@ -23,7 +23,7 @@ func NewHttpTunnel(hostname string, conn net.Conn) Tunnel {
 }
 
 func (tn *HttpTunnel) Init() error {
-	privateListener, err := net.Listen("tcp4", "localhost:")
+	privateListener, err := net.Listen("tcp4", ":0")
 	if err != nil {
 		return err
 	}
