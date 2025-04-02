@@ -8,7 +8,7 @@ curl -fsSL https://xpos-it.com/install.sh | sudo bash
 ```
 
 ## Authentication
-Obtain an authentication token from xpos-it.com/auth and run:
+Request an authentication token from xpos-it.com/auth and run:
 
 ```shell
 xpos auth <auth-token>

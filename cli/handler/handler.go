@@ -8,13 +8,13 @@ import (
 	"github.com/ametow/xpos/events"
 )
 
-func HandleConn(client *events.Event[events.NewConnection], local, private string) error {
-	localConn, err := net.Dial("tcp4", local)
+func HandleConn(client *events.Event[events.NewConnection], localProcessAddr, remotePrivateAddr string) error {
+	localConn, err := net.Dial("tcp4", localProcessAddr)
 	if err != nil {
 		return err
 	}
 	defer localConn.Close()
-	remoteConn, err := net.Dial("tcp4", private)
+	remoteConn, err := net.Dial("tcp4", remotePrivateAddr)
 	if err != nil {
 		return err
 	}
