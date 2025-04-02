@@ -11,6 +11,7 @@ import (
 )
 
 type TcpTunnel struct {
+	hostname      string
 	AgentConn     net.Conn
 	connections   sync.Map
 	privateAddr   string
@@ -18,8 +19,9 @@ type TcpTunnel struct {
 	initialBuffer sync.Map
 }
 
-func NewTcpTunnel(conn net.Conn) Tunnel {
+func NewTcpTunnel(conn net.Conn, hostname string) Tunnel {
 	return &TcpTunnel{
+		hostname:      hostname,
 		AgentConn:     conn,
 		connections:   sync.Map{},
 		initialBuffer: sync.Map{},
@@ -43,8 +45,9 @@ func (tn *TcpTunnel) Init() error {
 	if err != nil {
 		return err
 	}
-	tn.privateAddr = privLn.Addr().String()
-	tn.publicAddr = pubLn.Addr().String()
+
+	tn.privateAddr = fmt.Sprintf("%s:%d", tn.hostname, privLn.Addr().(*net.TCPAddr).Port)
+	tn.publicAddr = fmt.Sprintf("%s:%d", tn.hostname, pubLn.Addr().(*net.TCPAddr).Port)
 
 	go processListener(privLn, tn.privConnHandler)
 	go processListener(pubLn, tn.publicConnHandler)

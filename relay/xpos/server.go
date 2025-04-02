@@ -83,7 +83,7 @@ func (x *Xpos) handleEventServer(conn net.Conn) error {
 
 	user, err := x.authenticator.Authenticate(req.Data.AuthToken)
 	if err != nil {
-		return events.WriteError(conn, "authentication failed %s", "\n\tobtain auth token from https://xpos-it.com/auth\n")
+		return events.WriteError(conn, "authentication failed %s", "\n\trequest auth token from https://xpos-it.com/auth\n")
 	}
 
 	hostname := fmt.Sprintf("%s.%s", user.Login, x.hostname)
@@ -99,7 +99,7 @@ func (x *Xpos) handleEventServer(conn net.Conn) error {
 		x.httpTunnels.Store(hostname, tn)
 		defer x.httpTunnels.Delete(hostname)
 	case "tcp":
-		tn = tunnel.NewTcpTunnel(conn)
+		tn = tunnel.NewTcpTunnel(conn, hostname)
 	default:
 		return nil
 	}

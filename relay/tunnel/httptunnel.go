@@ -1,6 +1,7 @@
 package tunnel
 
 import (
+	"fmt"
 	"net"
 	"sync"
 )
@@ -27,7 +28,8 @@ func (tn *HttpTunnel) Init() error {
 	if err != nil {
 		return err
 	}
-	tn.privateAddr = privateListener.Addr().String()
+
+	tn.privateAddr = fmt.Sprintf("%s:%d", tn.hostname, privateListener.Addr().(*net.TCPAddr).Port)
 	go processListener(privateListener, tn.privConnHandler)
 
 	return nil

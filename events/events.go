@@ -96,30 +96,21 @@ func (e *Event[Type]) decode(data []byte) error {
 func Bind(src net.Conn, dst net.Conn) error {
 	defer src.Close()
 	defer dst.Close()
-	_ = src.SetReadDeadline(time.Now().Add(time.Second * 10))
-	_ = dst.SetReadDeadline(time.Now().Add(time.Second * 10))
-	_, err := io.Copy(src, dst)
-	if err != nil {
-		return err
-	}
 
-	// buf := make([]byte, 4096)
-	// for {
-	// 	_ = src.SetReadDeadline(time.Now().Add(time.Second * 10))
-	// 	n, err := src.Read(buf)
-	// 	log.Println("read: ", n)
-	// 	if err == io.EOF {
-	// 		// log.Println(err)
-	// 		break
-	// 	}
-	// 	_ = dst.SetWriteDeadline(time.Now().Add(time.Second * 10))
-	// 	n, err = dst.Write(buf[:n])
-	// 	if err != nil {
-	// 		// log.Println(err)
-	// 		return err
-	// 	}
-	// 	log.Println("written: ", n)
-	// }
+	buf := make([]byte, 4096)
+	for {
+		_ = src.SetReadDeadline(time.Now().Add(time.Second * 10))
+		n, err := src.Read(buf)
+		if err == io.EOF {
+			break
+		}
+		_ = dst.SetWriteDeadline(time.Now().Add(time.Second * 10))
+		n, err = dst.Write(buf[:n])
+		if err != nil {
+			return err
+		}
+		time.Sleep(10 * time.Millisecond) // rate limit connection bind
+	}
 	return nil
 }
 

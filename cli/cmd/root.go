@@ -7,8 +7,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-const BASEURL = "https://xpos-it.com:9876"
-
 var (
 	rootCmd = &cobra.Command{
 		Use:               "xpos",
@@ -16,7 +14,7 @@ var (
 		Long:              `XPOS is a free and open-source tool that allows local servers to be accessible on the public internet. It supports TCP protocols like HTTP, SSH, and more.`,
 		CompletionOptions: cobra.CompletionOptions{DisableDefaultCmd: true},
 		Run: func(cmd *cobra.Command, args []string) {
-			tcpCommand.Usage()
+			cmd.Usage()
 		},
 	}
 )
