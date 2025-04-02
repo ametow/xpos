@@ -26,10 +26,3 @@ Expose an SSH server on port 22:
 ```shell
 xpos tcp 22
 ```
-
-Debugging HTTP Tunnels
-Enable debug mode:
-
-```shell
-xpos http 3000 --debug
-```
