@@ -11,7 +11,6 @@ func init() {
 var httpCommand = &cobra.Command{
 	Use:   "http [port]",
 	Short: "Forward http traffic",
-	Long:  ``,
 	Args:  cobra.MinimumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		tcpHttpCommand("http", args[0])

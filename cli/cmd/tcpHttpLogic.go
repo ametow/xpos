@@ -29,6 +29,10 @@ func tcpHttpCommand(protocol, port string) {
 		log.Fatal("error creating tunnel:", err)
 	}
 
+	if protocol == "http" {
+		protocol = "https"
+	}
+
 	fmt.Println("Started listening on public network.")
 	fmt.Printf("Public addr: %s://%s\n", protocol, tunnedCreated.Data.PublicListenerPort)
 
