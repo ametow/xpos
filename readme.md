@@ -27,3 +27,5 @@ Expose an SSH server on port 22:
 ```shell
 xpos tcp 22
 ```
+
+### If you want to contribute, please refer [to this page](/contribute.md)
