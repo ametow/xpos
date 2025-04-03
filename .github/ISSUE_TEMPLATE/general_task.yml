@@ -1,0 +1,31 @@
+name: General Task
+description: Create a general issue for tracking work
+title: "[Task] <brief description>"
+labels: ["task"]
+assignees: []
+body:
+  - type: markdown
+    attributes:
+      value: "### Task Details"
+
+  - type: textarea
+    id: description
+    attributes:
+      label: "Describe the task"
+      description: "Provide details about what needs to be done."
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: "Expected Outcome"
+      description: "What should be the final result of this task?"
+    validations:
+      required: true
+
+  - type: input
+    id: deadline
+    attributes:
+      label: "Deadline (if any)"
+      description: "Specify a deadline (optional)."

@@ -1,11 +1,12 @@
-name: 🐞 Bug Report
+name: Bug Report
 description: Report an issue with the project
 title: "[BUG] <brief description>"
 labels: ["bug", "needs triage"]
+assignees: []
 body:
   - type: markdown
     attributes:
-      value: "### 🐛 Please describe the bug"
+      value: "### Please describe the bug"
 
   - type: textarea
     id: description
