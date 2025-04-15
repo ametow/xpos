@@ -3,6 +3,7 @@ package xpos
 import (
 	"errors"
 	"fmt"
+	"github.com/ametow/xpos/relay/constants"
 	"io"
 	"log"
 	"net"
@@ -26,14 +27,13 @@ type Xpos struct {
 }
 
 func New() *Xpos {
-	x := &Xpos{
+	return &Xpos{
 		hostname:      os.Getenv("XPOS_DOMAIN"),
-		eventServer:   server.New(9876, "event_server"),
-		httpGateway:   server.New(8080, "http_gateway"),
+		eventServer:   server.New(9876, constants.EventServer),
+		httpGateway:   server.New(8080, constants.HTTPGateway),
 		httpTunnels:   &sync.Map{},
 		authenticator: auth.New(),
 	}
-	return x
 }
 
 func (x *Xpos) Init() error {
@@ -77,7 +77,7 @@ func (x *Xpos) handleEventServer(conn net.Conn) error {
 		return err
 	}
 
-	if req.Data.Protocol != "tcp" && req.Data.Protocol != "http" {
+	if req.Data.Protocol != constants.TCP && req.Data.Protocol != constants.HTTP {
 		return events.WriteError(conn, "invalid protocol %s", req.Data.Protocol)
 	}
 
@@ -90,7 +90,7 @@ func (x *Xpos) handleEventServer(conn net.Conn) error {
 
 	var tn tunnel.Tunnel
 	switch req.Data.Protocol {
-	case "http":
+	case constants.HTTP:
 		_, ok := x.httpTunnels.Load(hostname)
 		if ok {
 			return events.WriteError(conn, "subdomain is busy: %s, try another one", user.Login)
@@ -98,7 +98,7 @@ func (x *Xpos) handleEventServer(conn net.Conn) error {
 		tn = tunnel.NewHttpTunnel(hostname, conn)
 		x.httpTunnels.Store(hostname, tn)
 		defer x.httpTunnels.Delete(hostname)
-	case "tcp":
+	case constants.TCP:
 		tn = tunnel.NewTcpTunnel(conn, hostname)
 	default:
 		return nil
@@ -109,7 +109,7 @@ func (x *Xpos) handleEventServer(conn net.Conn) error {
 	}
 	defer tn.Close()
 
-	fmt.Printf("%s [tunnel-created] %s\n", time.Now().Format("2006/01/02 15:04:05"), user.Login)
+	fmt.Printf("%s [tunnel-created] %s\n", time.Now().Format(constants.DateTimeCustomLayout), user.Login)
 
 	tunnelCreatedEvent := events.NewTunnelCreatedEvent()
 	tunnelCreatedEvent.Data.Hostname = x.hostname
