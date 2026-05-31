@@ -5,7 +5,7 @@ import (
 	"log"
 	"os"
 
-	"github.com/ametow/xpos/cli/config"
+	"github.com/ametow/xpos/agent/config"
 	"github.com/spf13/cobra"
 )
 

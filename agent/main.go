@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/ametow/xpos/cli/cmd"
+	"github.com/ametow/xpos/agent/cmd"
 )
 
 func main() {

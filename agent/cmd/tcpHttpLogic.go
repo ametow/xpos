@@ -6,8 +6,8 @@ import (
 	"net"
 	"strings"
 
-	"github.com/ametow/xpos/cli/config"
-	"github.com/ametow/xpos/cli/handler"
+	"github.com/ametow/xpos/agent/config"
+	"github.com/ametow/xpos/agent/handler"
 	"github.com/ametow/xpos/events"
 )
 
