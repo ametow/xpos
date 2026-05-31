@@ -1,34 +1,55 @@
 package events
 
 import (
-	"bytes"
 	"encoding/binary"
-	"encoding/gob"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"net"
-	"time"
 )
 
+// Wire format for every event:
+//
+//	[1 byte type tag][2 bytes little-endian payload length][payload bytes (JSON)]
+//
+// Both peers know the expected event type at every read site, so the tag
+// is validated on Read to fail fast (and clearly) if the streams desync
+// or peers disagree on protocol version.
+type EventType byte
+
+const (
+	EventTypeTunnelRequest EventType = 1
+	EventTypeTunnelCreated EventType = 2
+	EventTypeNewConnection EventType = 3
+)
+
+// maxFrameSize bounds an individual event payload to protect against
+// malicious or buggy peers sending huge length prefixes.
+const maxFrameSize = 64 * 1024
+
 type Event[Type TunnelCreated | TunnelRequest | NewConnection] struct {
+	Type EventType
 	Data *Type
 }
 
 func NewTunnelRequestEvent() *Event[TunnelRequest] {
 	return &Event[TunnelRequest]{
+		Type: EventTypeTunnelRequest,
 		Data: &TunnelRequest{},
 	}
 }
 
 func NewTunnelCreatedEvent() *Event[TunnelCreated] {
 	return &Event[TunnelCreated]{
+		Type: EventTypeTunnelCreated,
 		Data: &TunnelCreated{},
 	}
 }
 
 func NewConnectionEvent() *Event[NewConnection] {
 	return &Event[NewConnection]{
+		Type: EventTypeNewConnection,
 		Data: &NewConnection{},
 	}
 }
@@ -50,74 +71,64 @@ type NewConnection struct {
 }
 
 func (e *Event[Type]) Read(conn io.Reader) error {
-	buffer := make([]byte, 2)
-	if _, err := conn.Read(buffer); err != nil {
+	header := make([]byte, 3)
+	if _, err := io.ReadFull(conn, header); err != nil {
 		return err
 	}
-	length := binary.LittleEndian.Uint16(buffer)
-	buffer = make([]byte, length)
-	if _, err := conn.Read(buffer); err != nil {
+	gotType := EventType(header[0])
+	if gotType != e.Type {
+		return fmt.Errorf("unexpected event type: got %d, want %d", gotType, e.Type)
+	}
+	length := binary.LittleEndian.Uint16(header[1:])
+	if int(length) > maxFrameSize {
+		return fmt.Errorf("event frame too large: %d bytes", length)
+	}
+	buffer := make([]byte, length)
+	if _, err := io.ReadFull(conn, buffer); err != nil {
 		return err
 	}
-	err := e.decode(buffer)
-	return err
+	return json.Unmarshal(buffer, e.Data)
 }
 
 func (e *Event[Type]) Write(conn io.Writer) error {
-	data, err := e.encode()
+	data, err := json.Marshal(e.Data)
 	if err != nil {
 		return err
 	}
-	length := make([]byte, 2)
-	binary.LittleEndian.PutUint16(length, uint16(len(data)))
-	if _, err := conn.Write(length); err != nil {
-		return err
+	if len(data) > maxFrameSize {
+		return fmt.Errorf("event payload too large: %d bytes", len(data))
 	}
-	_, err = conn.Write(data)
+	// Emit the type tag, length prefix, and payload in a single Write so
+	// concurrent writers on the same net.Conn cannot interleave frames.
+	frame := make([]byte, 3+len(data))
+	frame[0] = byte(e.Type)
+	binary.LittleEndian.PutUint16(frame[1:3], uint16(len(data)))
+	copy(frame[3:], data)
+	_, err = conn.Write(frame)
 	return err
 }
 
-func (e *Event[Type]) encode() ([]byte, error) {
-	var buf bytes.Buffer
-	enc := gob.NewEncoder(&buf)
-	if err := enc.Encode(e.Data); err != nil {
-		return nil, err
-	}
-	data := buf.Bytes()
-	return data, nil
-}
-
-func (e *Event[Type]) decode(data []byte) error {
-	buff := bytes.NewBuffer(data)
-	dec := gob.NewDecoder(buff)
-	return dec.Decode(&e.Data)
-}
-
 func Bind(src net.Conn, dst net.Conn) error {
-	defer src.Close()
-	defer dst.Close()
-
-	buf := make([]byte, 4096)
-	for {
-		_ = src.SetReadDeadline(time.Now().Add(time.Second * 10))
-		n, err := src.Read(buf)
-		if err == io.EOF {
-			break
-		}
-		_ = dst.SetWriteDeadline(time.Now().Add(time.Second * 10))
-		n, err = dst.Write(buf[:n])
-		if err != nil {
-			return err
-		}
-		time.Sleep(10 * time.Millisecond) // rate limit connection bind
+	_, err := io.Copy(dst, src)
+	// Half-close so the peer can finish draining the other direction
+	// (the reverse Bind goroutine).
+	if cw, ok := dst.(interface{ CloseWrite() error }); ok {
+		_ = cw.CloseWrite()
+	} else {
+		_ = dst.Close()
 	}
-	return nil
+	return err
 }
 
 func WriteError(eventWriter io.Writer, message string, args ...string) error {
+	fmtArgs := make([]any, len(args))
+	for i, a := range args {
+		fmtArgs[i] = a
+	}
 	event := Event[TunnelCreated]{
+		Type: EventTypeTunnelCreated,
 		Data: &TunnelCreated{
-			ErrorMessage: fmt.Sprintf(message, args),
+			ErrorMessage: fmt.Sprintf(message, fmtArgs...),
 		},
 	}
 	event.Write(eventWriter)
