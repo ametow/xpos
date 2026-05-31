@@ -1,3 +1,3 @@
-.PHONY: build-cli
-build-cli:
+.PHONY: build-agent
+build-agent:
 	./build.sh
