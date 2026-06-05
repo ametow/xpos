@@ -1,0 +1,26 @@
+# Headless governing Service for the relay StatefulSet. Provides
+# stable per-pod DNS names of the form
+# `<pod>.relay-headless.<namespace>.svc.cluster.local`. The per-pod
+# Services that HTTPRoute backendRefs target are created dynamically
+# by the RelayPodReconciler.
+apiVersion: v1
+kind: Service
+metadata:
+  name: relay-headless
+  namespace: system
+  labels:
+    app.kubernetes.io/name: xpos-relay
+spec:
+  clusterIP: None
+  selector:
+    app.kubernetes.io/name: xpos-relay
+  ports:
+  - name: events
+    port: 9876
+    targetPort: events
+  - name: http
+    port: 8080
+    targetPort: http
+  - name: admin
+    port: 9090
+    targetPort: admin

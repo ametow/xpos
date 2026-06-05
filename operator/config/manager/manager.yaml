@@ -1,0 +1,74 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: system
+  labels:
+    app.kubernetes.io/name: xpos-operator
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: controller-manager
+  namespace: system
+  labels:
+    app.kubernetes.io/name: xpos-operator
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: xpos-operator
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: xpos-operator
+    spec:
+      serviceAccountName: controller-manager
+      terminationGracePeriodSeconds: 30
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+      - name: manager
+        # The default tag is placeholder; overlay it with kustomize
+        # `images:` or `make deploy IMG=...`.
+        image: xpos-operator:latest
+        imagePullPolicy: IfNotPresent
+        args:
+        - --leader-elect
+        env:
+        - name: XPOS_GATEWAY_NAME
+          value: xpos-gateway
+        - name: XPOS_GATEWAY_NAMESPACE
+          value: ""
+        - name: XPOS_RELAY_HTTP_PORT
+          value: "8080"
+        ports:
+        - name: health
+          containerPort: 8081
+        - name: metrics
+          containerPort: 8443
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: health
+          initialDelaySeconds: 15
+          periodSeconds: 20
+        readinessProbe:
+          httpGet:
+            path: /readyz
+            port: health
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        resources:
+          requests:
+            cpu: 50m
+            memory: 64Mi
+          limits:
+            cpu: 500m
+            memory: 256Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop: [ALL]
+          readOnlyRootFilesystem: true

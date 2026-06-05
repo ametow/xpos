@@ -1,0 +1,217 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.16.5
+  name: tunnels.xpos.xpos-it.com
+spec:
+  group: xpos.xpos-it.com
+  names:
+    kind: Tunnel
+    listKind: TunnelList
+    plural: tunnels
+    shortNames:
+    - xtun
+    singular: tunnel
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .spec.protocol
+      name: Protocol
+      type: string
+    - jsonPath: .spec.hostname
+      name: Hostname
+      type: string
+    - jsonPath: .status.phase
+      name: Phase
+      type: string
+    - jsonPath: .status.publicAddr
+      name: Public
+      type: string
+    - jsonPath: .status.tcpPort
+      name: TCPPort
+      priority: 1
+      type: integer
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: Tunnel is a single forward of public traffic to a connected agent.
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: |-
+              TunnelSpec describes the desired state of a tunnel. Spec is normally
+              authored by a controller (in response to an agent's TunnelRequest)
+              rather than a human, but it is a valid first-class resource.
+            properties:
+              agentRef:
+                description: AgentRef points at the Agent CR that requested this tunnel.
+                properties:
+                  name:
+                    type: string
+                  namespace:
+                    type: string
+                required:
+                - name
+                type: object
+              hostname:
+                description: |-
+                  Hostname is the public hostname assigned to this tunnel
+                  (e.g. `alice.xpos-it.com`).
+                minLength: 1
+                type: string
+              protocol:
+                description: Protocol selects between HTTP (subdomain-routed) and
+                  raw TCP.
+                enum:
+                - http
+                - tcp
+                type: string
+            required:
+            - agentRef
+            - hostname
+            - protocol
+            type: object
+          status:
+            description: TunnelStatus carries observed state.
+            properties:
+              assignedPod:
+                description: |-
+                  AssignedPod is the data-plane pod currently serving this
+                  tunnel's bridged byte streams. Mirrors the AgentRef's relay
+                  pod once placement is complete.
+                properties:
+                  name:
+                    type: string
+                  namespace:
+                    type: string
+                required:
+                - name
+                - namespace
+                type: object
+              conditions:
+                description: Conditions follow the standard k8s conditions pattern.
+                items:
+                  description: Condition contains details for one aspect of the current
+                    state of this API Resource.
+                  properties:
+                    lastTransitionTime:
+                      description: |-
+                        lastTransitionTime is the last time the condition transitioned from one status to another.
+                        This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                      format: date-time
+                      type: string
+                    message:
+                      description: |-
+                        message is a human readable message indicating details about the transition.
+                        This may be an empty string.
+                      maxLength: 32768
+                      type: string
+                    observedGeneration:
+                      description: |-
+                        observedGeneration represents the .metadata.generation that the condition was set based upon.
+                        For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+                        with respect to the current state of the instance.
+                      format: int64
+                      minimum: 0
+                      type: integer
+                    reason:
+                      description: |-
+                        reason contains a programmatic identifier indicating the reason for the condition's last transition.
+                        Producers of specific condition types may define expected values and meanings for this field,
+                        and whether the values are considered a guaranteed API.
+                        The value should be a CamelCase string.
+                        This field may not be empty.
+                      maxLength: 1024
+                      minLength: 1
+                      pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
+                      type: string
+                    status:
+                      description: status of the condition, one of True, False, Unknown.
+                      enum:
+                      - "True"
+                      - "False"
+                      - Unknown
+                      type: string
+                    type:
+                      description: type of condition in CamelCase or in foo.example.com/CamelCase.
+                      maxLength: 316
+                      pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
+                      type: string
+                  required:
+                  - lastTransitionTime
+                  - message
+                  - reason
+                  - status
+                  - type
+                  type: object
+                type: array
+                x-kubernetes-list-map-keys:
+                - type
+                x-kubernetes-list-type: map
+              observedGeneration:
+                description: ObservedGeneration is the .metadata.generation last reconciled.
+                format: int64
+                type: integer
+              phase:
+                description: Phase is a coarse-grained lifecycle state for human consumption.
+                enum:
+                - Pending
+                - Assigned
+                - Active
+                - Failed
+                - Terminating
+                type: string
+              privateAddr:
+                description: |-
+                  PrivateAddr is the address the agent dials back on for new
+                  visitor connections.
+
+                  Deprecated as of protocol v2 (yamux multiplex): the agent no
+                  longer opens a private listener. Retained on the wire for
+                  backwards compatibility with tooling that read v1 status.
+                type: string
+              publicAddr:
+                description: PublicAddr is the external address advertised to end
+                  users.
+                type: string
+              tcpPort:
+                description: |-
+                  TCPPort is the public TCP port allocated to this tunnel by
+                  the operator's port allocator. Populated only for TCP
+                  tunnels (spec.protocol=tcp). The value matches the listener
+                  port on the parent Gateway used by the reconciled TCPRoute.
+
+                  Authoritative: this field is set by the operator. The relay
+                  reads it back to know which port to bind. Until the relay
+                  honors it, the listener inside the relay still binds :0 and
+                  the route will not actually carry traffic — tracked as a
+                  known follow-up in the relay refactor.
+                format: int32
+                type: integer
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}

@@ -1,0 +1,13 @@
+# Default deployment. Override namespace + image with:
+#   kustomize edit set namespace xpos-system
+#   kustomize edit set image xpos-operator:dev=registry.example/xpos-operator:1.2.3
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: xpos-system
+namePrefix: xpos-
+
+resources:
+  - ../crd
+  - ../rbac
+  - ../manager
+  - ../relay

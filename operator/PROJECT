@@ -1,0 +1,29 @@
+# Kubebuilder-compatible PROJECT manifest for the xpos operator.
+# Maintained by hand (we scaffolded without operator-sdk/kubebuilder
+# binaries). Update this when adding/removing APIs so any future use
+# of the kubebuilder CLI keeps working.
+domain: xpos-it.com
+layout:
+- go.kubebuilder.io/v4
+projectName: xpos-operator
+repo: github.com/ametow/xpos/operator
+version: "3"
+resources:
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: xpos-it.com
+  group: xpos
+  kind: Agent
+  path: github.com/ametow/xpos/operator/api/v1alpha1
+  version: v1alpha1
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: xpos-it.com
+  group: xpos
+  kind: Tunnel
+  path: github.com/ametow/xpos/operator/api/v1alpha1
+  version: v1alpha1

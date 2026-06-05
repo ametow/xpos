@@ -1,43 +1,61 @@
 package handler
 
 import (
-	"encoding/binary"
+	"fmt"
+	"io"
+	"log"
 	"net"
-	"net/netip"
+
+	"github.com/hashicorp/yamux"
 
 	"github.com/ametow/xpos/events"
 )
 
-func HandleConn(client *events.Event[events.NewConnection], localProcessAddr, remotePrivateAddr string) error {
-	localConn, err := net.Dial("tcp4", localProcessAddr)
-	if err != nil {
-		return err
+// ServeStreams accepts yamux streams from the relay (each one
+// corresponds to a new public connection) and bridges them to the
+// local target address. It blocks until the session terminates.
+//
+// Each stream begins with an OpenStream event describing the public
+// client. For HTTP tunnels the event also carries any bytes the
+// relay already consumed from the public connection while parsing
+// the Host header; those bytes are replayed to the local server
+// before bidirectional copying begins.
+func ServeStreams(session *yamux.Session, localAddr string) error {
+	for {
+		stream, err := session.AcceptStream()
+		if err != nil {
+			if err == io.EOF || session.IsClosed() {
+				return nil
+			}
+			return fmt.Errorf("accept stream: %w", err)
+		}
+		go handleStream(stream, localAddr)
 	}
-	defer localConn.Close()
-	remoteConn, err := net.Dial("tcp4", remotePrivateAddr)
-	if err != nil {
-		return err
-	}
-	defer remoteConn.Close()
+}
 
-	addr, err := netip.ParseAddrPort(client.Data.ClientAddr)
-	if err != nil {
-		return err
-	}
+func handleStream(stream net.Conn, localAddr string) {
+	defer stream.Close()
 
-	ip := addr.Addr().As4()
-	port := addr.Port()
-	buf := make([]byte, 6) // 4 for ip, 2 for port
-
-	copy(buf, ip[:])
-	binary.LittleEndian.PutUint16(buf[4:], uint16(port))
-
-	_, err = remoteConn.Write(buf)
-	if err != nil {
-		return err
+	open := events.NewOpenStreamEvent()
+	if err := open.Read(stream); err != nil {
+		log.Printf("read OpenStream: %v", err)
+		return
 	}
 
-	go events.Bind(localConn, remoteConn)
-	events.Bind(remoteConn, localConn)
-	return nil
+	local, err := net.Dial("tcp4", localAddr)
+	if err != nil {
+		log.Printf("dial local %s: %v", localAddr, err)
+		return
+	}
+	defer local.Close()
+
+	if len(open.Data.InitialData) > 0 {
+		if _, err := local.Write(open.Data.InitialData); err != nil {
+			log.Printf("replay initial data: %v", err)
+			return
+		}
+	}
+
+	go events.Bind(stream, local)
+	events.Bind(local, stream)
 }

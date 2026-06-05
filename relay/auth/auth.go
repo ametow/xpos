@@ -2,9 +2,12 @@ package auth
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
+	"sync"
+	"time"
 )
 
 const oAuthPrefix = "gho_"
@@ -23,36 +26,70 @@ type Authenticator interface {
 
 type github struct {
 	userEndpoint string
+	client       *http.Client
+	cache        sync.Map // token -> *cachedAuth
+	posTTL       time.Duration
+	negTTL       time.Duration
+}
+
+type cachedAuth struct {
+	user      User
+	err       error
+	expiresAt time.Time
 }
 
 func New() Authenticator {
-	return github{
+	return &github{
 		userEndpoint: "https://api.github.com/user",
+		client:       &http.Client{Timeout: 5 * time.Second},
+		posTTL:       5 * time.Minute,
+		negTTL:       30 * time.Second,
 	}
 }
 
-func (g github) Authenticate(token string) (User, error) {
-	return g.authenticate(g.userEndpoint, token)
+func (g *github) Authenticate(token string) (User, error) {
+	if token == "" {
+		return User{}, errors.New("empty auth token")
+	}
+	if v, ok := g.cache.Load(token); ok {
+		c := v.(*cachedAuth)
+		if time.Now().Before(c.expiresAt) {
+			return c.user, c.err
+		}
+		g.cache.Delete(token)
+	}
+	user, err := g.authenticate(g.userEndpoint, token)
+	ttl := g.posTTL
+	if err != nil {
+		ttl = g.negTTL
+	}
+	g.cache.Store(token, &cachedAuth{
+		user:      user,
+		err:       err,
+		expiresAt: time.Now().Add(ttl),
+	})
+	return user, err
 }
 
-func (g github) authenticate(endpoint, token string) (User, error) {
+func (g *github) authenticate(endpoint, token string) (User, error) {
 	user := User{}
-	client := &http.Client{}
 
-	req, _ := http.NewRequest("GET", endpoint, nil)
-	req.Header.Set("Authorization", fmt.Sprintf("token %s%s", oAuthPrefix, token))
-	resp, err := client.Do(req)
-
+	req, err := http.NewRequest(http.MethodGet, endpoint, nil)
 	if err != nil {
-		return user, fmt.Errorf("authentication request failed: %v", err)
+		return user, fmt.Errorf("build auth request: %w", err)
+	}
+	req.Header.Set("Authorization", fmt.Sprintf("token %s%s", oAuthPrefix, token))
+
+	resp, err := g.client.Do(req)
+	if err != nil {
+		return user, fmt.Errorf("authentication request failed: %w", err)
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		return user, fmt.Errorf("invalid token %v", token)
+		return user, fmt.Errorf("invalid token (status %d)", resp.StatusCode)
 	}
-	err = json.NewDecoder(resp.Body).Decode(&user)
-	if err != nil {
-		return user, fmt.Errorf("failed to decode user data: %v", err)
+	if err := json.NewDecoder(resp.Body).Decode(&user); err != nil {
+		return user, fmt.Errorf("failed to decode user data: %w", err)
 	}
 	user.Login = strings.ToLower(user.Login)
 	return user, nil

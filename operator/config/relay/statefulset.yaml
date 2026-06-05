@@ -1,0 +1,75 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: relay
+  namespace: system
+  labels:
+    app.kubernetes.io/name: xpos-relay
+spec:
+  serviceName: relay-headless
+  replicas: 2
+  podManagementPolicy: Parallel
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: xpos-relay
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: xpos-relay
+    spec:
+      serviceAccountName: relay
+      terminationGracePeriodSeconds: 30
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+      - name: relay
+        image: xpos-relay:latest
+        imagePullPolicy: IfNotPresent
+        env:
+        # Downward API: the relay's k8s package reads these to name
+        # its Lease and CRs.
+        - name: XPOS_POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: XPOS_POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: XPOS_DOMAIN
+          value: xpos-it.com
+        - name: XPOS_ADMIN_ADDR
+          value: ":9090"
+        ports:
+        - name: events
+          containerPort: 9876
+        - name: http
+          containerPort: 8080
+        - name: admin
+          containerPort: 9090
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: admin
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /readyz
+            port: admin
+          initialDelaySeconds: 2
+          periodSeconds: 5
+        resources:
+          requests:
+            cpu: 100m
+            memory: 64Mi
+          limits:
+            cpu: "1"
+            memory: 256Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop: [ALL]
+          readOnlyRootFilesystem: true

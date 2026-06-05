@@ -6,4 +6,4 @@ package.json
 bin/
 etc/
 cli/xpos
-server/xpos-server
+server/xpos-serveroperator/bin/

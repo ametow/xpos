@@ -1,0 +1,10 @@
+apiVersion: xpos.xpos-it.com/v1alpha1
+kind: Agent
+metadata:
+  name: agent-sample
+spec:
+  identity: alice
+  sessionID: 9a3f-demo
+  relayPod:
+    namespace: xpos-system
+    name: xpos-relay-0

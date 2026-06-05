@@ -2,9 +2,12 @@ package cmd
 
 import (
 	"fmt"
+	"io"
 	"log"
 	"net"
 	"strings"
+
+	"github.com/hashicorp/yamux"
 
 	"github.com/ametow/xpos/agent/config"
 	"github.com/ametow/xpos/agent/handler"
@@ -28,15 +31,13 @@ func tcpHttpCommand(protocol, port string) {
 	request.Data.Protocol = protocol
 	request.Data.AuthToken = conf.Local.AuthToken
 
-	err = request.Write(conn)
-	if err != nil {
+	if err := request.Write(conn); err != nil {
 		fmt.Println("error requesting tunnel:", err)
 		return
 	}
 
 	tunnelCreated := events.NewTunnelCreatedEvent()
-	err = tunnelCreated.Read(conn)
-	if err != nil {
+	if err := tunnelCreated.Read(conn); err != nil {
 		fmt.Println("error creating tunnel:", err)
 		return
 	}
@@ -45,28 +46,29 @@ func tcpHttpCommand(protocol, port string) {
 		return
 	}
 
-	if protocol == "http" {
-		protocol = "https"
+	displayProto := protocol
+	if displayProto == "http" {
+		displayProto = "https"
 	}
 	localAddr := net.JoinHostPort("127.0.0.1", port)
 
 	fmt.Println("Started listening on public network.")
 	fmt.Printf("Protocol: \t %s \n", strings.ToUpper(request.Data.Protocol))
-	fmt.Printf("Forwarded: \t %s://%s -> %s \n", protocol, tunnelCreated.Data.PublicListenerPort, localAddr)
+	fmt.Printf("Forwarded: \t %s://%s -> %s \n", displayProto, tunnelCreated.Data.PublicListenerPort, localAddr)
 
-	for {
-		newConnectionEvent := events.NewConnectionEvent()
-		err := newConnectionEvent.Read(conn)
-		if err != nil {
-			log.Fatal("error on new connection receive: ", err)
-		}
-
-		go func() {
-			err := handler.HandleConn(newConnectionEvent, localAddr, tunnelCreated.Data.PrivateListenerPort)
-			if err != nil {
-				log.Println(err)
-			}
-		}()
+	// Wrap the control connection in a yamux client. From here on
+	// the relay multiplexes public connections as yamux streams;
+	// the agent just accepts and bridges each one.
+	cfg := yamux.DefaultConfig()
+	cfg.EnableKeepAlive = false
+	cfg.LogOutput = io.Discard
+	session, err := yamux.Client(conn, cfg)
+	if err != nil {
+		log.Fatal("yamux client:", err)
 	}
+	defer session.Close()
 
+	if err := handler.ServeStreams(session, localAddr); err != nil {
+		log.Println("serve streams:", err)
+	}
 }
