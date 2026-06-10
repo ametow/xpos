@@ -10,7 +10,7 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-var Version = "0.1.0-alpha"
+var Version = "1.0.0"
 var localConfig = ".xposrc"
 var remoteConfig = "https://xpos-it.com/config.json"
 

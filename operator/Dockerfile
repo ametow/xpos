@@ -4,7 +4,7 @@
 # if/when controllers reference it. Build with:
 #   docker build -f operator/Dockerfile -t xpos-operator:dev .
 
-ARG GO_VERSION=1.23
+ARG GO_VERSION=1.26
 
 FROM golang:${GO_VERSION}-alpine AS build
 WORKDIR /src

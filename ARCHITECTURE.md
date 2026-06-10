@@ -16,6 +16,13 @@ This document explains the XPOS project architecture, the Kubernetes-native desi
 10. [TCPRoute Integration](#tcproute-integration)
 11. [Deployment](#deployment)
 12. [Development Workflow](#development-workflow)
+13. [Concrete Examples](#concrete-examples)
+14. [Troubleshooting Guide](#troubleshooting-guide)
+15. [Security Considerations](#security-considerations)
+16. [Performance and Scaling](#performance-and-scaling)
+17. [Environment Variables](#environment-variables)
+18. [Future Work](#future-work)
+19. [Summary](#summary)
 
 ---
 
@@ -49,6 +56,7 @@ CRDs are like database tables that the Kubernetes API server can store and serve
 A **controller** is a loop that watches Kubernetes resources and makes changes to move the actual state toward the desired state. This pattern is called **reconciliation**.
 
 For example, when a Tunnel CR is created:
+
 1. The controller notices the new resource
 2. It looks up the referenced Agent
 3. It creates an HTTPRoute or TCPRoute pointing to the relay
@@ -328,10 +336,12 @@ controller.SetupRelayPodReconciler(mgr)
 ### Agent Reconciler (`agent_controller.go`)
 
 **Watches**:
+
 - Agent CRs (primary)
 - Lease resources (for heartbeat expiry)
 
 **Reconciliation logic**:
+
 1. If Agent has no `relayPod` assignment, find an available relay pod
 2. Update `spec.relayPod` with chosen pod
 3. Set status phase to `Assigned`
@@ -342,10 +352,12 @@ controller.SetupRelayPodReconciler(mgr)
 ### Tunnel Reconciler (`tunnel_controller.go`)
 
 **Watches**:
+
 - Tunnel CRs (primary)
 - Agent CRs (to react to placement changes)
 
 **Reconciliation logic**:
+
 1. Resolve referenced Agent, get assigned relay pod
 2. Update `status.assignedPod` and `status.publicAddr`
 3. For HTTP: call `reconcileHTTPRoute`
@@ -353,11 +365,13 @@ controller.SetupRelayPodReconciler(mgr)
 5. Mark `phase=Active`
 
 **HTTPRoute reconciliation**:
+
 - Create HTTPRoute with hostname match rule
 - Backend = per-pod Service (e.g., `relay-0`) on the relay's HTTP port
 - Parent ref = configured Gateway
 
 **TCPRoute reconciliation**:
+
 - Create TCPRoute with sectionName matching the allocated port
 - Backend = per-pod Service on the same port
 - Parent ref = configured Gateway's TCP listener
@@ -365,9 +379,11 @@ controller.SetupRelayPodReconciler(mgr)
 ### RelayPod Reconciler (`relaypod_controller.go`)
 
 **Watches**:
+
 - Pods with label `app.kubernetes.io/name=xpos-relay`
 
 **Reconciliation logic**:
+
 1. For each relay pod, create a Service named after the pod
 2. Service selector = `statefulset.kubernetes.io/pod-name=<pod>`
 3. This gives HTTPRoute/TCPRoute a stable backend target
@@ -379,6 +395,7 @@ controller.SetupRelayPodReconciler(mgr)
 **Design**: Stateless scan of existing Tunnel CRs.
 
 **Algorithm**:
+
 1. If the tunnel already has `status.tcpPort` in range, return it (idempotent)
 2. List all Tunnel CRs in the namespace
 3. Build a set of used ports from `status.tcpPort`
@@ -399,6 +416,7 @@ The relay is a Go server that runs as a Kubernetes StatefulSet. It has two main 
 ### Event Server (`relay/xpos/server.go:handleEventServer`)
 
 Flow:
+
 1. Accept TCP connection from agent
 2. Read `TunnelRequest` event (protocol, auth token)
 3. Authenticate with auth backend
@@ -413,6 +431,7 @@ Flow:
 ### HTTP Gateway (`relay/xpos/server.go:handleHttpGateway`)
 
 Flow:
+
 1. Accept public HTTP connection
 2. Call `parseHost` to extract Host header (buffered, reads until `\r\n\r\n` or 8KB)
 3. Look up tunnel by hostname in `httpTunnels` map
@@ -434,6 +453,7 @@ Flow:
 Abstraction layer so relay works out-of-cluster (no-op) and in-cluster (real client).
 
 **Methods**:
+
 - `Start`: Begin Lease renewal loop
 - `CreateAgent`: Create Agent CR
 - `DeleteAgent`: Delete Agent CR
@@ -443,6 +463,7 @@ Abstraction layer so relay works out-of-cluster (no-op) and in-cluster (real cli
 - `PodName`/`Namespace`: Return downward-API values
 
 **Lease renewal**:
+
 - Every 10s, update Lease `renewTime`
 - Lease duration = 30s
 - Operator watches Leases; if stale, GCs Agent CRs
@@ -489,6 +510,7 @@ The agent is a CLI tool built with cobra. It runs on the user's machine.
 - Agent dialed back to private address for each public connection
 
 **Problems**:
+
 - Per-tunnel private listeners consume ports
 - Dial-back adds latency and complexity
 - Hard to firewall (agent must accept incoming connections)
@@ -502,6 +524,7 @@ The agent is a CLI tool built with cobra. It runs on the user's machine.
 - Agent accepts stream, dials local service
 
 **Benefits**:
+
 - Only one TCP connection per agent (control + multiplexed traffic)
 - No dial-back latency
 - Agent only needs outbound connectivity
@@ -557,14 +580,15 @@ metadata:
 spec:
   parentRefs:
     - name: xpos-gateway
-      sectionName: "30000"  # Matches Gateway listener
+      sectionName: "30000" # Matches Gateway listener
   rules:
     - backendRefs:
-        - name: relay-0     # Per-pod Service
+        - name: relay-0 # Per-pod Service
           port: 30000
 ```
 
 The Gateway must have a TCP listener for each allocated port. In practice, this is either:
+
 - A single Gateway with a wildcard TCP listener (if supported)
 - Operator-managed Gateway with per-port listeners (current implementation assumes Gateway is pre-configured with a range)
 
@@ -644,20 +668,516 @@ make manifests  # Generate CRD manifests and RBAC
 ### Running Locally
 
 **Relay**:
+
 ```sh
 go run ./cmd/relay
 ```
 
 **Agent**:
+
 ```sh
 go run ./cmd/agent http 8080 --server localhost:9876 --token $TOKEN
 ```
 
 **Operator** (against a remote cluster):
+
 ```sh
 cd operator
 make run
 ```
+
+---
+
+## Concrete Examples
+
+### Example 1: HTTP Tunnel with All CRs
+
+Here's a complete example showing all the Kubernetes resources created for an HTTP tunnel:
+
+```yaml
+# Agent CR (created by relay when agent connects)
+apiVersion: xpos.xpos-it.com/v1alpha1
+kind: Agent
+metadata:
+  name: alice-a1b2c3d4
+  namespace: xpos-system
+  ownerReferences:
+    - apiVersion: coordination.k8s.io/v1
+      kind: Lease
+      name: xpos-relay-0 # Garbage collected if lease expires
+spec:
+  identity: alice
+  sessionID: a1b2c3d4
+  relayPod:
+    namespace: xpos-system
+    name: xpos-relay-0
+status:
+  phase: Active
+  conditions:
+    - type: Ready
+      status: "True"
+      reason: Assigned
+      message: assigned to relay pod xpos-relay-0
+
+---
+# Tunnel CR (created by relay, reconciled by operator)
+apiVersion: xpos.xpos-it.com/v1alpha1
+kind: Tunnel
+metadata:
+  name: alice-a1b2c3d4-http
+  namespace: xpos-system
+  ownerReferences:
+    - apiVersion: xpos.xpos-it.com/v1alpha1
+      kind: Agent
+      name: alice-a1b2c3d4
+spec:
+  protocol: http
+  hostname: alice.xpos-it.com
+  agentRef:
+    name: alice-a1b2c3d4
+    namespace: xpos-system
+status:
+  phase: Active
+  assignedPod:
+    namespace: xpos-system
+    name: xpos-relay-0
+  publicAddr: alice.xpos-it.com
+  conditions:
+    - type: Ready
+      status: "True"
+      reason: Reconciled
+      message: tunnel route is in sync
+
+---
+# HTTPRoute (reconciled by operator)
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: alice-a1b2c3d4-http
+  namespace: xpos-system
+  ownerReferences:
+    - apiVersion: xpos.xpos-it.com/v1alpha1
+      kind: Tunnel
+      name: alice-a1b2c3d4-http
+spec:
+  parentRefs:
+    - name: xpos-gateway
+      namespace: xpos-system
+  hostnames:
+    - alice.xpos-it.com
+  rules:
+    - backendRefs:
+        - name: xpos-relay-0 # Per-pod Service
+          port: 8080
+
+---
+# Per-pod Service (reconciled by operator)
+apiVersion: v1
+kind: Service
+metadata:
+  name: xpos-relay-0
+  namespace: xpos-system
+spec:
+  selector:
+    app.kubernetes.io/name: xpos-relay
+    statefulset.kubernetes.io/pod-name: xpos-relay-0
+  ports:
+    - name: http
+      port: 8080
+      targetPort: 8080
+    - name: event
+      port: 9876
+      targetPort: 9876
+```
+
+**Key observations**:
+
+- All resources are linked via `ownerReferences` enabling automatic garbage collection
+- The Tunnel is owned by the Agent, which is owned by the Lease
+- The HTTPRoute and Service are owned by the Tunnel
+- If any parent is deleted, children are cleaned up automatically
+
+### Example 2: TCP Tunnel with Port Allocation
+
+```yaml
+# Tunnel CR for TCP (note tcpPort in status)
+apiVersion: xpos.xpos-it.com/v1alpha1
+kind: Tunnel
+metadata:
+  name: bob-tcp-5678
+  namespace: xpos-system
+spec:
+  protocol: tcp
+  hostname: bob.xpos-it.com
+  agentRef:
+    name: bob-tcp-session
+status:
+  phase: Active
+  tcpPort: 30042 # Allocated by operator from range [30000-30099]
+  assignedPod:
+    name: xpos-relay-1
+  publicAddr: bob.xpos-it.com:30042
+
+---
+# TCPRoute for the tunnel
+apiVersion: gateway.networking.k8s.io/v1alpha2
+kind: TCPRoute
+metadata:
+  name: bob-tcp-5678
+  namespace: xpos-system
+spec:
+  parentRefs:
+    - name: xpos-gateway
+      sectionName: "30042" # Must match Gateway listener port
+  rules:
+    - backendRefs:
+        - name: xpos-relay-1
+          port: 30042
+```
+
+### Example 3: Gateway Configuration
+
+```yaml
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: xpos-gateway
+  namespace: xpos-system
+spec:
+  gatewayClassName: envoy
+  listeners:
+    # HTTP listener for subdomain routing
+    - name: http
+      protocol: HTTP
+      port: 80
+      allowedRoutes:
+        namespaces:
+          from: Same
+    # TCP listeners for allocated ports (simplified - wildcard would be better)
+    - name: tcp-30000
+      protocol: TCP
+      port: 30000
+      allowedRoutes:
+        kinds:
+          - kind: TCPRoute
+    - name: tcp-30001
+      protocol: TCP
+      port: 30001
+      allowedRoutes:
+        kinds:
+          - kind: TCPRoute
+    # ... more TCP listeners for each port in allocation range
+```
+
+**Production note**: Most Gateway implementations don't support wildcard TCP listeners. A production setup might use:
+
+1. A separate Gateway controller that dynamically adds listeners
+2. A custom controller that patches the Gateway as ports are allocated
+3. A large pre-configured range (30000-30199) with all listeners defined
+
+---
+
+## Troubleshooting Guide
+
+### Symptom: Tunnel stays in `Pending` phase with `AgentNotFound`
+
+**Possible causes**:
+
+1. Relay cannot create Agent CRs (RBAC issue)
+2. Operator is not running or crashed
+3. Network partition between relay and API server
+
+**Diagnostic steps**:
+
+```bash
+# Check relay logs
+kubectl logs -n xpos-system -l app.kubernetes.io/name=xpos-relay
+
+# Check if relay ServiceAccount has proper permissions
+kubectl auth can-i create agents --as=system:serviceaccount:xpos-system:relay
+
+# Check if operator is running
+kubectl get pods -n xpos-system -l control-plane=controller-manager
+
+# Check operator logs
+kubectl logs -n xpos-system -l control-plane=controller-manager
+```
+
+**Solution**:
+
+- Apply RBAC from `config/rbac/`: `kubectl apply -k config/rbac`
+- Ensure `relay` ServiceAccount exists and is bound to the `relay` ClusterRole
+
+### Symptom: Tunnel reaches `Active` but no traffic flows
+
+**Possible causes**:
+
+1. HTTPRoute/TCPRoute not created or not attached to Gateway
+2. Gateway not programmed (no Envoy proxies running)
+3. Per-pod Service not selecting the relay pod
+4. Relay not actually listening on the expected port
+
+**Diagnostic steps**:
+
+```bash
+# Check if HTTPRoute exists and is attached
+kubectl get httproutes -n xpos-system
+kubectl describe httproute <name> -n xpos-system
+
+# Check Gateway status
+kubectl describe gateway xpos-gateway -n xpos-system
+
+# Check if per-pod Service exists and has endpoints
+kubectl get svc -n xpos-system
+kubectl get endpoints -n xpos-system xpos-relay-0
+
+# Port-forward to relay and check if it's listening
+kubectl port-forward -n xpos-system pod/xpos-relay-0 9876:9876
+telnet localhost 9876
+```
+
+**Solution**:
+
+- Check GatewayClass exists: `kubectl get gatewayclass`
+- Install Envoy Gateway if not present: `helm install eg oci://docker.io/envoyproxy/gateway-helm`
+- Verify pod has required labels: `kubectl get pod xpos-relay-0 --show-labels`
+- Check relay logs for bind errors
+
+### Symptom: TCP tunnel times out during handshake
+
+**Possible causes**:
+
+1. Port allocator exhausted range
+2. Operator not reconciling TCP tunnels
+3. TCPRoute creation failing (Gateway doesn't have TCP listener)
+
+**Diagnostic steps**:
+
+```bash
+# Check if tcpPort was allocated
+kubectl get tunnel <name> -o yaml | grep tcpPort
+
+# Check operator logs for allocator errors
+kubectl logs -n xpos-system -l control-plane=controller-manager | grep -i tcp
+
+# Check if Gateway has TCP listener for the port
+kubectl describe gateway xpos-gateway -n xpos-system
+```
+
+**Solution**:
+
+- Increase port range: update operator Deployment env vars `XPOS_TCP_PORT_MIN`/`MAX`
+- Delete stale Tunnel CRs to free ports
+- Add TCP listeners to Gateway or use wildcard TCP support
+
+### Symptom: Agent connects but gets "authentication failed"
+
+**Possible causes**:
+
+1. Invalid or expired auth token
+2. Auth backend unreachable
+3. Relay auth client misconfigured
+
+**Solution**:
+
+- Verify token at `https://xpos-it.com/auth`
+- Check relay has network access to auth backend
+- Check relay logs for auth errors
+
+### Symptom: Relay pods not getting ready
+
+**Possible causes**:
+
+1. Cannot create Lease (RBAC)
+2. Cannot read downward API env vars
+3. Image pull errors
+
+**Diagnostic steps**:
+
+```bash
+kubectl describe pod xpos-relay-0
+kubectl logs xpos-relay-0 -n xpos-system
+
+# Check if Lease exists
+kubectl get leases -n xpos-system
+```
+
+**Solution**:
+
+- Ensure `XPOS_POD_NAME` and `XPOS_POD_NAMESPACE` are set via downward API in StatefulSet spec
+- Verify relay ServiceAccount can create Leases
+
+---
+
+## Security Considerations
+
+### Authentication and Authorization
+
+**Auth flow**:
+
+1. Agent sends auth token in `TunnelRequest` event
+2. Relay validates token with external auth backend (OAuth, API key, etc.)
+3. Only authenticated agents can create tunnels
+4. No further auth checks on data plane (assumes authenticated session is trusted)
+
+**Production recommendations**:
+
+- Use short-lived tokens with refresh (JWT with expiry)
+- Implement rate limiting on auth endpoint
+- Add IP allowlisting for relay event server
+
+### Network Security
+
+**Relay StatefulSet**:
+
+- Event server (port 9876) should be internal-only (ClusterIP or behind firewall)
+- HTTP gateway (port 80/443) is public-facing
+- Admin server (port 8080) should be internal or require auth
+
+**Network Policies** (example):
+
+```yaml
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: xpos-relay
+  namespace: xpos-system
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: xpos-relay
+  policyTypes:
+    - Ingress
+  ingress:
+    # Allow event server from within cluster (agent port-forwards)
+    - from:
+        - namespaceSelector: {}
+      ports:
+        - protocol: TCP
+          port: 9876
+    # Allow HTTP from anywhere
+    - ports:
+        - protocol: TCP
+          port: 80
+```
+
+### CRD Security
+
+**RBAC principles**:
+
+- Relay needs create/update/delete on Agent and Tunnel CRs
+- Operator needs full control on Agent, Tunnel, HTTPRoute, TCPRoute, Service, Pods
+- Users should NOT have direct access to create/modify Tunnel CRs (bypasses auth)
+
+**Recommendation**: Add validating webhook to reject Tunnel CRs that don't have proper owner references (ensuring only relay creates them).
+
+### Data Plane Security
+
+**Current state**:
+
+- Traffic between public → Gateway → Relay is unencrypted (plain HTTP/TCP)
+- Traffic between Relay → Agent is over the yamux session (inside the established TCP connection)
+- No TLS on the agent→relay control connection in current implementation
+
+**Production hardening**:
+
+1. Enable TLS on Gateway (cert-manager for automatic certificates)
+2. Use TLS for agent→relay connection (wrap in TLS before yamux)
+3. Consider WireGuard or similar for agent→relay tunneling
+4. Implement SNI-based routing to avoid port allocation for TCP
+
+---
+
+## Performance and Scaling
+
+### Horizontal Scaling
+
+**Relay StatefulSet**:
+
+- Scale by increasing `replicas` in StatefulSet
+- Each relay pod gets its own Leases and per-pod Service
+- Agent placement is currently simple (first available pod) - could be enhanced with load-aware scheduling
+- New pods automatically get Services created by RelayPodReconciler
+
+**Operator**:
+
+- Single replica is usually sufficient (event-driven, not request-driven)
+- Can scale leader-election if needed, but cache sharing becomes complex
+
+**Gateway**:
+
+- Envoy Gateway scales horizontally via Deployment
+- TCP port range limits concurrent TCP tunnels (default 100 ports = 100 TCP tunnels max)
+
+### Resource Usage
+
+**Relay per tunnel**:
+
+- Memory: ~50-100 KB per active tunnel (goroutine + yamux session overhead)
+- Connections: 1 yamux stream per active public connection
+- File descriptors: 2 per connection (public + yamux stream)
+
+**Practical limits** (per relay pod):
+
+- ~10,000 concurrent HTTP tunnels (map lookup overhead)
+- ~1,000 concurrent TCP tunnels (port range limit)
+- ~10,000 concurrent connections (yamux default limit, configurable)
+
+### Bottlenecks
+
+1. **Gateway controller**: Some implementations have limits on HTTPRoute count or TCP listener count
+2. **Operator polling**: TCP port allocator scans all Tunnels O(N) - acceptable for N<1000
+3. **Single HTTP gateway**: All HTTP traffic goes through one relay process - could shard by hostname prefix
+4. **API server**: High churn of Agent/Tunnel CRs can stress etcd
+
+### Optimization Strategies
+
+**For high connection counts**:
+
+- Increase relay pod resources (CPU/memory)
+- Tune yamux `MaxStreams` and `AcceptBacklog`
+- Add connection pooling in agent
+
+**For high tunnel counts**:
+
+- Extend TCP port range (requires Gateway reconfiguration)
+- Implement SNI-based TCP routing (single port, TLS with SNI)
+- Add sharding (multiple Gateway instances with different domains)
+
+**For low latency**:
+
+- Run relay pods in same region as Gateway proxies
+- Use dedicated nodes for relay (avoid noisy neighbors)
+- Tune TCP keepalive and yamux keepalive settings
+
+### Monitoring
+
+**Key metrics to watch**:
+
+```
+# From relay /metrics endpoint
+tunnels_active          # Current active tunnels
+connections_total       # Total connections handled
+connection_duration_ms  # P99 latency
+auth_failures_total     # Failed authentications
+
+# From operator
+reconcile_duration_seconds    # Reconciliation latency
+reconcile_errors_total        # Failed reconciliations
+workqueue_depth               # Backlog of events
+
+# From Kubernetes
+cpu_usage_relay_pods
+memory_usage_relay_pods
+api_server_request_duration
+```
+
+**Alerting thresholds**:
+
+- `tunnels_active` approaching port range limit (90%)
+- `auth_failures_total` spike (possible attack)
+- `reconcile_errors_total` > 0 (operator issues)
+- Lease expiry (relay pod down)
 
 ---
 

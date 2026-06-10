@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"sync"
 	"sync/atomic"
 
 	"github.com/hashicorp/yamux"
@@ -118,16 +119,29 @@ func (tn *TcpTunnel) handlePublicConn(pub net.Conn) error {
 		_ = pub.Close()
 		return fmt.Errorf("open stream: %w", err)
 	}
-	defer stream.Close()
-	defer pub.Close()
 
 	open := events.NewOpenStreamEvent()
 	open.Data.ClientAddr = pub.RemoteAddr().String()
 	if err := open.Write(stream); err != nil {
+		_ = stream.Close()
+		_ = pub.Close()
 		return fmt.Errorf("write OpenStream: %w", err)
 	}
-	go events.Bind(stream, pub)
-	events.Bind(pub, stream)
+
+	var wg sync.WaitGroup
+	wg.Add(2)
+	go func() {
+		defer wg.Done()
+		events.Bind(stream, pub)
+	}()
+	go func() {
+		defer wg.Done()
+		events.Bind(pub, stream)
+	}()
+	wg.Wait()
+
+	_ = stream.Close()
+	_ = pub.Close()
 	return nil
 }
 

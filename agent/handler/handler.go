@@ -5,6 +5,7 @@ import (
 	"io"
 	"log"
 	"net"
+	"sync"
 
 	"github.com/hashicorp/yamux"
 
@@ -56,6 +57,18 @@ func handleStream(stream net.Conn, localAddr string) {
 		}
 	}
 
-	go events.Bind(stream, local)
-	events.Bind(local, stream)
+	var wg sync.WaitGroup
+	wg.Add(2)
+	go func() {
+		defer wg.Done()
+		events.Bind(stream, local)
+	}()
+	go func() {
+		defer wg.Done()
+		events.Bind(local, stream)
+	}()
+	wg.Wait()
+
+	_ = stream.Close()
+	_ = local.Close()
 }

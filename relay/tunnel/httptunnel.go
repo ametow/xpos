@@ -3,6 +3,7 @@ package tunnel
 import (
 	"context"
 	"net"
+	"sync"
 
 	"github.com/ametow/xpos/events"
 )
@@ -67,17 +68,30 @@ func (tn *HttpTunnel) PublicConnHandler(pub net.Conn, prefix []byte) {
 		_ = pub.Close()
 		return
 	}
-	defer stream.Close()
-	defer pub.Close()
 
 	open := events.NewOpenStreamEvent()
 	open.Data.ClientAddr = pub.RemoteAddr().String()
 	open.Data.InitialData = prefix
 	if err := open.Write(stream); err != nil {
+		_ = stream.Close()
+		_ = pub.Close()
 		return
 	}
-	go events.Bind(stream, pub)
-	events.Bind(pub, stream)
+
+	var wg sync.WaitGroup
+	wg.Add(2)
+	go func() {
+		defer wg.Done()
+		events.Bind(stream, pub)
+	}()
+	go func() {
+		defer wg.Done()
+		events.Bind(pub, stream)
+	}()
+	wg.Wait()
+
+	_ = stream.Close()
+	_ = pub.Close()
 }
 
 // Compile-time guard: HttpTunnel must satisfy Tunnel.

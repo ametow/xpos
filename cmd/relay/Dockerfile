@@ -3,7 +3,7 @@
 # image running as a non-root user. The agent has its own build path
 # (build.sh) and is not produced here.
 
-ARG GO_VERSION=1.23
+ARG GO_VERSION=1.26
 
 FROM golang:${GO_VERSION}-alpine AS build
 WORKDIR /src

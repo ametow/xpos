@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"os"
 	"strings"
 	"sync"
 	"time"
@@ -38,7 +39,17 @@ type cachedAuth struct {
 	expiresAt time.Time
 }
 
+// devAuth is a development authenticator that bypasses all auth checks.
+type devAuth struct{}
+
+func (d *devAuth) Authenticate(token string) (User, error) {
+	return User{ID: 1, Name: "Dev User", Login: "dev", Allowed: true}, nil
+}
+
 func New() Authenticator {
+	if os.Getenv("XPOS_DEV_NO_AUTH") == "1" {
+		return &devAuth{}
+	}
 	return &github{
 		userEndpoint: "https://api.github.com/user",
 		client:       &http.Client{Timeout: 5 * time.Second},
