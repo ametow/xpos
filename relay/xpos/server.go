@@ -287,7 +287,6 @@ func (x *Xpos) handleEventServer(ctx context.Context, conn net.Conn) error {
 
 	logger.Info("tunnel created",
 		"public", tn.PublicAddr(),
-		"private", tn.PrivateAddr(),
 	)
 
 	// HTTP: register the Tunnel CR now that Init succeeded. TCP
@@ -303,7 +302,6 @@ func (x *Xpos) handleEventServer(ctx context.Context, conn net.Conn) error {
 	tunnelCreatedEvent := events.NewTunnelCreatedEvent()
 	tunnelCreatedEvent.Data.Hostname = x.hostname
 	tunnelCreatedEvent.Data.PublicListenerPort = tn.PublicAddr()
-	tunnelCreatedEvent.Data.PrivateListenerPort = tn.PrivateAddr() // always "" in v2
 
 	// IMPORTANT: write TunnelCreated on the *raw* connection before
 	// the tunnel wraps it in a yamux session. After Run() the

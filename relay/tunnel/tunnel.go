@@ -19,7 +19,6 @@ const PendingConnTimeout = 30 * time.Second
 const MaxPendingConnections = 1024
 
 type Tunnel interface {
-	PrivateAddr() string
 	PublicAddr() string
 	// Init reserves any resources whose addresses must be known
 	// before the relay writes the TunnelCreated event (e.g. the

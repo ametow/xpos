@@ -30,7 +30,6 @@ type TcpTunnel struct {
 	hostname    string
 	AgentConn   net.Conn
 	publicAddr  string
-	privateAddr string
 	desiredPort int
 
 	session *yamux.Session
@@ -53,8 +52,7 @@ func NewTcpTunnel(conn net.Conn, hostname string, port int) Tunnel {
 	}
 }
 
-func (tn *TcpTunnel) PrivateAddr() string { return tn.privateAddr }
-func (tn *TcpTunnel) PublicAddr() string  { return tn.publicAddr }
+func (tn *TcpTunnel) PublicAddr() string { return tn.publicAddr }
 
 // Init binds the public listener so PublicAddr is available, but
 // does NOT yet wrap the agent connection in yamux. That wrap must
@@ -68,7 +66,8 @@ func (tn *TcpTunnel) Init(ctx context.Context) error {
 		return fmt.Errorf("listen %s: %w", addr, err)
 	}
 	tn.pubLn = pubLn
-	tn.publicAddr = fmt.Sprintf("%s:%d", tn.hostname, pubLn.Addr().(*net.TCPAddr).Port)
+	host, _, _ := net.SplitHostPort(tn.hostname)
+	tn.publicAddr = net.JoinHostPort(host, fmt.Sprintf("%d", pubLn.Addr().(*net.TCPAddr).Port))
 	return nil
 }
 

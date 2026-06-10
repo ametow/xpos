@@ -1,9 +1,7 @@
 package config
 
 import (
-	"encoding/json"
 	"fmt"
-	"net/http"
 	"os"
 	"path/filepath"
 
@@ -40,16 +38,18 @@ func (c *Config) Load() error {
 	if err := yaml.Unmarshal(data, &c.Local); err != nil {
 		return fmt.Errorf("error unmarshaling config file contents: %s", err)
 	}
+	c.Remote.Domain = "localhost"
+	c.Remote.Events = "localhost:9876"
 
-	response, err := http.Get(remoteConfig)
-	if err != nil || response.StatusCode != http.StatusOK {
-		return fmt.Errorf("error fetching %s: %s", remoteConfig, err)
-	}
-	defer response.Body.Close()
+	// response, err := http.Get(remoteConfig)
+	// if err != nil || response.StatusCode != http.StatusOK {
+	// 	return fmt.Errorf("error fetching %s: %s", remoteConfig, err)
+	// }
+	// defer response.Body.Close()
 
-	if err := json.NewDecoder(response.Body).Decode(&c.Remote); err != nil {
-		return fmt.Errorf("error decoding config file: %s", err)
-	}
+	// if err := json.NewDecoder(response.Body).Decode(&c.Remote); err != nil {
+	// 	return fmt.Errorf("error decoding config file: %s", err)
+	// }
 
 	return nil
 }

@@ -143,9 +143,6 @@ func TestTcpTunnelPrivateAddrEmpty(t *testing.T) {
 	}
 	defer tn.Close()
 
-	if got := tn.PrivateAddr(); got != "" {
-		t.Fatalf("PrivateAddr = %q, want empty", got)
-	}
 	if got := tn.PublicAddr(); got == "" {
 		t.Fatalf("PublicAddr is empty")
 	}
