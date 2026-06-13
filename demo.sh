@@ -59,13 +59,13 @@ echo "=== XPOS Local K8s Tunnel Demo ==="
 echo ""
 
 # 1. Start local server
-echo "1. Starting local HTTP server on port 8888..."
-cd "$DEMO_DIR"
-python3 server.py 8888 > /tmp/xpos_server.log 2>&1 &
-SERVER_PID=$!
-sleep 2
-echo "   ✓ Local server: http://localhost:8888 (PID: $SERVER_PID)"
-echo ""
+# echo "1. Starting local HTTP server on port 8888..."
+# cd "$DEMO_DIR"
+# python3 server.py 8888 > /tmp/xpos_server.log 2>&1 &
+# SERVER_PID=$!
+# sleep 2
+# echo "   ✓ Local server: http://localhost:8888 (PID: $SERVER_PID)"
+# echo ""
 
 # 2. Port-forward to relay
 echo "2. Setting up port-forward to relay events port..."
