@@ -56,7 +56,7 @@ func main() {
 		Metrics:                metricsserver.Options{BindAddress: metricsAddr},
 		HealthProbeBindAddress: probeAddr,
 		LeaderElection:         enableLeaderElection,
-		LeaderElectionID:       "xpos-operator.xpos-it.com",
+		LeaderElectionID:       "xpos-operator.xpos-io.com",
 	})
 	if err != nil {
 		setupLog.Error(err, "unable to start manager")

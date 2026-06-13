@@ -10,7 +10,7 @@ import (
 
 var Version = "1.0.0"
 var localConfig = ".xposrc"
-var remoteConfig = "https://xpos-it.com/config.json"
+var remoteConfig = "https://xpos-io.com/config.json"
 
 type Config struct {
 	Remote struct {
@@ -32,7 +32,7 @@ func (c *Config) Load() error {
 
 	data, err := os.ReadFile(filePath)
 	if err != nil {
-		return fmt.Errorf("error: no auth token, request at https://xpos-it.com/auth")
+		return fmt.Errorf("error: no auth token, request at https://xpos-io.com/auth")
 	}
 
 	if err := yaml.Unmarshal(data, &c.Local); err != nil {

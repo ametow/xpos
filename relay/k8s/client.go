@@ -1,7 +1,7 @@
 // Package k8s contains the relay's optional Kubernetes integration:
 //   - A coordination.k8s.io Lease that the relay pod renews to advertise
 //     its liveness to the operator.
-//   - Lifecycle management of xpos.xpos-it.com/v1alpha1 Agent and
+//   - Lifecycle management of xpos.xpos-io.com/v1alpha1 Agent and
 //     Tunnel custom resources (one CR per active session / tunnel).
 //
 // Everything in this package gracefully degrades to a no-op when the
@@ -69,10 +69,10 @@ type Client interface {
 // client. Kept in one place so a future API bump is one-line.
 var (
 	agentGVR = schema.GroupVersionResource{
-		Group: "xpos.xpos-it.com", Version: "v1alpha1", Resource: "agents",
+		Group: "xpos.xpos-io.com", Version: "v1alpha1", Resource: "agents",
 	}
 	tunnelGVR = schema.GroupVersionResource{
-		Group: "xpos.xpos-it.com", Version: "v1alpha1", Resource: "tunnels",
+		Group: "xpos.xpos-io.com", Version: "v1alpha1", Resource: "tunnels",
 	}
 )
 

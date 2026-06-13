@@ -1,9 +1,9 @@
-apiVersion: xpos.xpos-it.com/v1alpha1
+apiVersion: xpos.xpos-io.com/v1alpha1
 kind: Tunnel
 metadata:
   name: tunnel-sample
 spec:
   protocol: http
-  hostname: alice.xpos-it.com
+  hostname: alice.xpos-io.com
   agentRef:
     name: agent-sample

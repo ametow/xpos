@@ -32,9 +32,9 @@ type AgentReconciler struct {
 	Scheme *runtime.Scheme
 }
 
-// +kubebuilder:rbac:groups=xpos.xpos-it.com,resources=agents,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=xpos.xpos-it.com,resources=agents/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups=xpos.xpos-it.com,resources=agents/finalizers,verbs=update
+// +kubebuilder:rbac:groups=xpos.xpos-io.com,resources=agents,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=xpos.xpos-io.com,resources=agents/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=xpos.xpos-io.com,resources=agents/finalizers,verbs=update
 // +kubebuilder:rbac:groups=coordination.k8s.io,resources=leases,verbs=get;list;watch
 // +kubebuilder:rbac:groups="",resources=pods,verbs=get;list;watch
 

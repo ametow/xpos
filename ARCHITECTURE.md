@@ -168,7 +168,7 @@ Kubernetes provides a coordination API with **Lease** resources. XPOS uses Lease
 2. **Relay authenticates and creates CRs**:
    - Relay validates auth token with auth backend
    - Relay creates Agent CR with identity and session ID
-   - Relay creates Tunnel CR with protocol=`http`, hostname=`user.xpos-it.com`
+   - Relay creates Tunnel CR with protocol=`http`, hostname=`user.xpos-io.com`
    - Relay creates Lease for heartbeat (in-cluster only)
 
 3. **Operator reconciles**:
@@ -176,9 +176,9 @@ Kubernetes provides a coordination API with **Lease** resources. XPOS uses Lease
    - Looks up referenced Agent CR, finds assigned relay pod
    - Creates HTTPRoute with:
      - `parentRefs` pointing to the Gateway
-     - Hostname match rule (`user.xpos-it.com`)
+     - Hostname match rule (`user.xpos-io.com`)
      - Backend reference to the per-pod Service for that relay pod
-   - Updates Tunnel status: `phase=Active`, `publicAddr=user.xpos-it.com`
+   - Updates Tunnel status: `phase=Active`, `publicAddr=user.xpos-io.com`
 
 4. **Relay responds to agent**:
    - Relay initializes HTTP tunnel (no public listener needed for HTTP)
@@ -186,7 +186,7 @@ Kubernetes provides a coordination API with **Lease** resources. XPOS uses Lease
    - Relay sends `TunnelCreated` event back to agent
 
 5. **Traffic flow**:
-   - Public user accesses `http://user.xpos-it.com`
+   - Public user accesses `http://user.xpos-io.com`
    - Gateway routes to HTTPRoute backend (per-pod Service)
    - Relay receives connection on shared HTTP gateway
    - Relay parses Host header, finds matching tunnel
@@ -211,7 +211,7 @@ TCP tunnels are similar but with an extra step for port allocation:
    - Operator creates TCPRoute with:
      - `parentRefs` pointing to Gateway's TCP listener on port 30000
      - Backend reference to per-pod Service on port 30000
-   - Updates Tunnel status: `phase=Active`, `publicAddr=user.xpos-it.com:30000`
+   - Updates Tunnel status: `phase=Active`, `publicAddr=user.xpos-io.com:30000`
 
 4. **Relay binds to allocated port**:
    - Relay reads `status.tcpPort=30000` from CR
@@ -220,7 +220,7 @@ TCP tunnels are similar but with an extra step for port allocation:
    - Relay sends `TunnelCreated` event
 
 5. **Traffic flow**:
-   - Public user connects to `user.xpos-it.com:30000`
+   - Public user connects to `user.xpos-io.com:30000`
    - Gateway routes to TCPRoute backend (per-pod Service:30000)
    - Relay receives connection on port 30000
    - Relay opens yamux stream to agent, sends `OpenStream` event
@@ -696,7 +696,7 @@ Here's a complete example showing all the Kubernetes resources created for an HT
 
 ```yaml
 # Agent CR (created by relay when agent connects)
-apiVersion: xpos.xpos-it.com/v1alpha1
+apiVersion: xpos.xpos-io.com/v1alpha1
 kind: Agent
 metadata:
   name: alice-a1b2c3d4
@@ -721,18 +721,18 @@ status:
 
 ---
 # Tunnel CR (created by relay, reconciled by operator)
-apiVersion: xpos.xpos-it.com/v1alpha1
+apiVersion: xpos.xpos-io.com/v1alpha1
 kind: Tunnel
 metadata:
   name: alice-a1b2c3d4-http
   namespace: xpos-system
   ownerReferences:
-    - apiVersion: xpos.xpos-it.com/v1alpha1
+    - apiVersion: xpos.xpos-io.com/v1alpha1
       kind: Agent
       name: alice-a1b2c3d4
 spec:
   protocol: http
-  hostname: alice.xpos-it.com
+  hostname: alice.xpos-io.com
   agentRef:
     name: alice-a1b2c3d4
     namespace: xpos-system
@@ -741,7 +741,7 @@ status:
   assignedPod:
     namespace: xpos-system
     name: xpos-relay-0
-  publicAddr: alice.xpos-it.com
+  publicAddr: alice.xpos-io.com
   conditions:
     - type: Ready
       status: "True"
@@ -756,7 +756,7 @@ metadata:
   name: alice-a1b2c3d4-http
   namespace: xpos-system
   ownerReferences:
-    - apiVersion: xpos.xpos-it.com/v1alpha1
+    - apiVersion: xpos.xpos-io.com/v1alpha1
       kind: Tunnel
       name: alice-a1b2c3d4-http
 spec:
@@ -764,7 +764,7 @@ spec:
     - name: xpos-gateway
       namespace: xpos-system
   hostnames:
-    - alice.xpos-it.com
+    - alice.xpos-io.com
   rules:
     - backendRefs:
         - name: xpos-relay-0 # Per-pod Service
@@ -801,14 +801,14 @@ spec:
 
 ```yaml
 # Tunnel CR for TCP (note tcpPort in status)
-apiVersion: xpos.xpos-it.com/v1alpha1
+apiVersion: xpos.xpos-io.com/v1alpha1
 kind: Tunnel
 metadata:
   name: bob-tcp-5678
   namespace: xpos-system
 spec:
   protocol: tcp
-  hostname: bob.xpos-it.com
+  hostname: bob.xpos-io.com
   agentRef:
     name: bob-tcp-session
 status:
@@ -816,7 +816,7 @@ status:
   tcpPort: 30042 # Allocated by operator from range [30000-30099]
   assignedPod:
     name: xpos-relay-1
-  publicAddr: bob.xpos-it.com:30042
+  publicAddr: bob.xpos-io.com:30042
 
 ---
 # TCPRoute for the tunnel
@@ -980,7 +980,7 @@ kubectl describe gateway xpos-gateway -n xpos-system
 
 **Solution**:
 
-- Verify token at `https://xpos-it.com/auth`
+- Verify token at `https://xpos-io.com/auth`
 - Check relay has network access to auth backend
 - Check relay logs for auth errors
 
@@ -1185,7 +1185,7 @@ api_server_request_duration
 
 ### Relay
 
-- `XPOS_DOMAIN`: Base domain for hostnames (e.g., `xpos-it.com`)
+- `XPOS_DOMAIN`: Base domain for hostnames (e.g., `xpos-io.com`)
 - `XPOS_ADMIN_ADDR`: Admin server bind address (default `:8080`)
 - `XPOS_POD_NAME`: Pod name (downward API, in-cluster)
 - `XPOS_POD_NAMESPACE`: Pod namespace (downward API, in-cluster)

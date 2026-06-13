@@ -190,7 +190,7 @@ func (x *Xpos) handleEventServer(ctx context.Context, conn net.Conn) error {
 	user, err := x.authenticator.Authenticate(req.Data.AuthToken)
 	if err != nil {
 		x.mAuthFailures.Inc()
-		return events.WriteError(conn, "authentication failed %s", "\n\trequest auth token from https://xpos-it.com/auth\n")
+		return events.WriteError(conn, "authentication failed %s", "\n\trequest auth token from https://xpos-io.com/auth\n")
 	}
 
 	hostname := fmt.Sprintf("%s.%s", user.Login, x.hostname)

@@ -64,10 +64,10 @@ type TunnelReconciler struct {
 	Allocator *TCPPortAllocator
 }
 
-// +kubebuilder:rbac:groups=xpos.xpos-it.com,resources=tunnels,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=xpos.xpos-it.com,resources=tunnels/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups=xpos.xpos-it.com,resources=tunnels/finalizers,verbs=update
-// +kubebuilder:rbac:groups=xpos.xpos-it.com,resources=agents,verbs=get;list;watch
+// +kubebuilder:rbac:groups=xpos.xpos-io.com,resources=tunnels,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=xpos.xpos-io.com,resources=tunnels/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=xpos.xpos-io.com,resources=tunnels/finalizers,verbs=update
+// +kubebuilder:rbac:groups=xpos.xpos-io.com,resources=agents,verbs=get;list;watch
 // +kubebuilder:rbac:groups=coordination.k8s.io,resources=leases,verbs=get;list;watch
 // +kubebuilder:rbac:groups=gateway.networking.k8s.io,resources=httproutes;tcproutes,verbs=get;list;watch;create;update;patch;delete
 

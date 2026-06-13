@@ -33,7 +33,7 @@ type TunnelSpec struct {
 	Protocol TunnelProtocol `json:"protocol"`
 
 	// Hostname is the public hostname assigned to this tunnel
-	// (e.g. `alice.xpos-it.com`).
+	// (e.g. `alice.xpos-io.com`).
 	// +kubebuilder:validation:MinLength=1
 	Hostname string `json:"hostname"`
 

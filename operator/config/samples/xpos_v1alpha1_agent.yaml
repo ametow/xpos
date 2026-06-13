@@ -1,4 +1,4 @@
-apiVersion: xpos.xpos-it.com/v1alpha1
+apiVersion: xpos.xpos-io.com/v1alpha1
 kind: Agent
 metadata:
   name: agent-sample

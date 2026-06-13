@@ -2,7 +2,7 @@
 # Maintained by hand (we scaffolded without operator-sdk/kubebuilder
 # binaries). Update this when adding/removing APIs so any future use
 # of the kubebuilder CLI keeps working.
-domain: xpos-it.com
+domain: xpos-io.com
 layout:
 - go.kubebuilder.io/v4
 projectName: xpos-operator
@@ -13,7 +13,7 @@ resources:
     crdVersion: v1
     namespaced: true
   controller: true
-  domain: xpos-it.com
+  domain: xpos-io.com
   group: xpos
   kind: Agent
   path: github.com/ametow/xpos/operator/api/v1alpha1
@@ -22,7 +22,7 @@ resources:
     crdVersion: v1
     namespaced: true
   controller: true
-  domain: xpos-it.com
+  domain: xpos-io.com
   group: xpos
   kind: Tunnel
   path: github.com/ametow/xpos/operator/api/v1alpha1

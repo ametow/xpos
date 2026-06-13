@@ -3,12 +3,12 @@
 ## Installation
 
 ```shell
-curl -fsSL https://xpos-it.com/install.sh | sudo bash
+curl -fsSL https://xpos-io.com/install.sh | sudo bash
 ```
 
 ## Authentication
 
-Request an authentication token from <https://xpos-it.com/auth> and run:
+Request an authentication token from <https://xpos-io.com/auth> and run:
 
 ```shell
 xpos auth <auth-token>

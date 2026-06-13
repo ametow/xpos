@@ -133,7 +133,7 @@ func agentName(identity, sessionID string) string {
 func (c *realClient) CreateAgent(ctx context.Context, identity, sessionID string) (string, error) {
 	name := agentName(identity, sessionID)
 	obj := &unstructured.Unstructured{Object: map[string]any{
-		"apiVersion": "xpos.xpos-it.com/v1alpha1",
+		"apiVersion": "xpos.xpos-io.com/v1alpha1",
 		"kind":       "Agent",
 		"metadata": map[string]any{
 			"name":      name,
@@ -171,7 +171,7 @@ func (c *realClient) DeleteAgent(ctx context.Context, name string) error {
 
 func (c *realClient) CreateTunnel(ctx context.Context, name, hostname, protocol, agentName string) error {
 	obj := &unstructured.Unstructured{Object: map[string]any{
-		"apiVersion": "xpos.xpos-it.com/v1alpha1",
+		"apiVersion": "xpos.xpos-io.com/v1alpha1",
 		"kind":       "Tunnel",
 		"metadata": map[string]any{
 			"name":      name,

@@ -40,7 +40,7 @@ spec:
                 fieldRef:
                   fieldPath: metadata.namespace
             - name: XPOS_DOMAIN
-              value: xpos-it.com
+              value: xpos-io.com
             - name: XPOS_ADMIN_ADDR
               value: ":9090"
             - name: XPOS_DEV_NO_AUTH
