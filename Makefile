@@ -7,7 +7,7 @@ build-agent:
 	./build.sh
 
 build-relay:
-	CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o bin/xpos-relay ./cmd/relay
+	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -ldflags="-s -w" -o bin/xpos-relay ./cmd/relay
 
 vet:
 	go vet ./...
