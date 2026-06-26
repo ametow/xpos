@@ -10,6 +10,7 @@ import (
 	"github.com/hashicorp/yamux"
 
 	"github.com/ametow/xpos/agent/config"
+	"github.com/ametow/xpos/agent/debugger"
 	"github.com/ametow/xpos/agent/handler"
 	"github.com/ametow/xpos/events"
 )
@@ -46,6 +47,13 @@ func tcpHttpCommand(protocol, port string) {
 		return
 	}
 
+	httpDebugger := debugger.New()
+	if port, err := httpDebugger.Run(0); err == nil {
+		fmt.Printf("Http Debugger: \t http://127.0.0.1:%d \n", port)
+	} else {
+		fmt.Printf("Http Debugger: \t failed to start: %v \n", err)
+	}
+
 	displayProto := protocol
 	if displayProto == "http" {
 		displayProto = "https"
@@ -68,7 +76,7 @@ func tcpHttpCommand(protocol, port string) {
 	}
 	defer session.Close()
 
-	if err := handler.ServeStreams(session, localAddr); err != nil {
+	if err := handler.ServeStreams(session, localAddr, httpDebugger); err != nil {
 		log.Println("serve streams:", err)
 	}
 }

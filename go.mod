@@ -3,6 +3,8 @@ module github.com/ametow/xpos
 go 1.26.0
 
 require (
+	github.com/djherbis/buffer v1.2.0
+	github.com/djherbis/nio/v3 v3.0.1
 	github.com/hashicorp/yamux v0.1.2
 	github.com/spf13/cobra v1.9.1
 	gopkg.in/yaml.v3 v3.0.1

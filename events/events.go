@@ -145,8 +145,13 @@ func (e *Event[Type]) Write(conn io.Writer) error {
 	return err
 }
 
-func Bind(src net.Conn, dst net.Conn) error {
-	_, err := io.Copy(dst, src)
+func Bind(src net.Conn, dst net.Conn, debug io.Writer) error {
+	w := io.Writer(dst)
+	if debug != nil {
+		w = io.MultiWriter(dst, debug)
+	}
+	_, err := io.Copy(w, src)
+
 	// Half-close so the peer can finish draining the other direction
 	// (the reverse Bind goroutine).
 	if cw, ok := dst.(interface{ CloseWrite() error }); ok {

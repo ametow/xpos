@@ -82,11 +82,11 @@ func (tn *HttpTunnel) PublicConnHandler(pub net.Conn, prefix []byte) {
 	wg.Add(2)
 	go func() {
 		defer wg.Done()
-		events.Bind(stream, pub)
+		events.Bind(stream, pub, nil)
 	}()
 	go func() {
 		defer wg.Done()
-		events.Bind(pub, stream)
+		events.Bind(pub, stream, nil)
 	}()
 	wg.Wait()
 

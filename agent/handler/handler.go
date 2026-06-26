@@ -6,11 +6,19 @@ import (
 	"log"
 	"net"
 	"sync"
+	"sync/atomic"
 
 	"github.com/hashicorp/yamux"
 
+	"github.com/ametow/xpos/agent/debugger"
 	"github.com/ametow/xpos/events"
 )
+
+// connCounter assigns a unique, monotonically increasing ID to each
+// public connection so the debugger never reuses an ID (the previous
+// scheme keyed on the client's ephemeral source port, which collides
+// when ports are recycled).
+var connCounter uint64
 
 // ServeStreams accepts yamux streams from the relay (each one
 // corresponds to a new public connection) and bridges them to the
@@ -21,7 +29,7 @@ import (
 // relay already consumed from the public connection while parsing
 // the Host header; those bytes are replayed to the local server
 // before bidirectional copying begins.
-func ServeStreams(session *yamux.Session, localAddr string) error {
+func ServeStreams(session *yamux.Session, localAddr string, debugg debugger.Debugger) error {
 	for {
 		stream, err := session.AcceptStream()
 		if err != nil {
@@ -30,11 +38,11 @@ func ServeStreams(session *yamux.Session, localAddr string) error {
 			}
 			return fmt.Errorf("accept stream: %w", err)
 		}
-		go handleStream(stream, localAddr)
+		go handleStream(stream, localAddr, debugg)
 	}
 }
 
-func handleStream(stream net.Conn, localAddr string) {
+func handleStream(stream net.Conn, localAddr string, debugg debugger.Debugger) {
 	defer stream.Close()
 
 	open := events.NewOpenStreamEvent()
@@ -50,22 +58,30 @@ func handleStream(stream net.Conn, localAddr string) {
 	}
 	defer local.Close()
 
+	debugCon := debugg.Connection(atomic.AddUint64(&connCounter, 1))
+	// Closing signals EOF to the debugger parsers so the final
+	// connection-close-delimited body gets flushed to the UI.
+	defer debugCon.Close()
+
 	if len(open.Data.InitialData) > 0 {
 		if _, err := local.Write(open.Data.InitialData); err != nil {
 			log.Printf("replay initial data: %v", err)
 			return
 		}
+		// Mirror the prefix the relay already consumed into the
+		// debugger so it can parse the full HTTP request.
+		_, _ = debugCon.Request().Write(open.Data.InitialData)
 	}
 
 	var wg sync.WaitGroup
 	wg.Add(2)
 	go func() {
 		defer wg.Done()
-		events.Bind(stream, local)
+		events.Bind(stream, local, debugCon.Request())
 	}()
 	go func() {
 		defer wg.Done()
-		events.Bind(local, stream)
+		events.Bind(local, stream, debugCon.Response())
 	}()
 	wg.Wait()
 
