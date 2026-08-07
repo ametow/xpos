@@ -4,6 +4,9 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"net/http"
+	"net/http/httputil"
+	"net/url"
 	"strings"
 
 	"github.com/ametow/xpos/agent/config"
@@ -11,7 +14,7 @@ import (
 	"github.com/ametow/xpos/events"
 )
 
-func tcpHttpCommand(protocol, port string) {
+func tcpHttpCommand(protocol, port string, debug bool) {
 	var conf config.Config
 	if err := conf.Load(); err != nil {
 		fmt.Println(err)
@@ -48,6 +51,11 @@ func tcpHttpCommand(protocol, port string) {
 	if protocol == "http" {
 		protocol = "https"
 	}
+
+	if debug && protocol == "https" {
+		go startDebugProxy(net.JoinHostPort("127.0.0.1", port))
+	}
+
 	localAddr := net.JoinHostPort("127.0.0.1", port)
 
 	fmt.Println("Started listening on public network.")
@@ -69,4 +77,25 @@ func tcpHttpCommand(protocol, port string) {
 		}()
 	}
 
+}
+
+func startDebugProxy(localAddr string) {
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		log.Printf("failed to start debug proxy: %v", err)
+		return
+	}
+	port := ln.Addr().(*net.TCPAddr).Port
+	fmt.Printf("Debug proxy: http://127.0.0.1:%d\n", port)
+
+	proxy := httputil.NewSingleHostReverseProxy(&url.URL{Scheme: "http", Host: localAddr})
+	server := &http.Server{
+		Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			fmt.Printf("[DEBUG] %s %s\n", r.Method, r.URL.Path)
+			proxy.ServeHTTP(w, r)
+		}),
+	}
+	if err := server.Serve(ln); err != nil && err != http.ErrServerClosed {
+		log.Printf("debug proxy stopped: %v", err)
+	}
 }
