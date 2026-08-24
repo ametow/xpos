@@ -26,7 +26,7 @@ const (
 
 // maxFrameSize bounds an individual event payload to protect against
 // malicious or buggy peers sending huge length prefixes.
-const maxFrameSize = 64 * 1024
+const maxFrameSize = 1<<16 - 1
 
 type Event[Type TunnelCreated | TunnelRequest | NewConnection] struct {
 	Type EventType
@@ -104,7 +104,10 @@ func (e *Event[Type]) Write(conn io.Writer) error {
 	frame[0] = byte(e.Type)
 	binary.LittleEndian.PutUint16(frame[1:3], uint16(len(data)))
 	copy(frame[3:], data)
-	_, err = conn.Write(frame)
+	n, err := conn.Write(frame)
+	if err == nil && n != len(frame) {
+		return io.ErrShortWrite
+	}
 	return err
 }
 
@@ -131,6 +134,8 @@ func WriteError(eventWriter io.Writer, message string, args ...string) error {
 			ErrorMessage: fmt.Sprintf(message, fmtArgs...),
 		},
 	}
-	event.Write(eventWriter)
+	if err := event.Write(eventWriter); err != nil {
+		return err
+	}
 	return errors.New(event.Data.ErrorMessage)
 }
