@@ -13,6 +13,6 @@ var tcpCommand = &cobra.Command{
 	Short: "Forward tcp traffic",
 	Args:  cobra.MinimumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		tcpHttpCommand("tcp", args[0])
+		tcpHttpCommand("tcp", args[0], "")
 	},
 }
