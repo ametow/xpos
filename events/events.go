@@ -57,6 +57,7 @@ func NewConnectionEvent() *Event[NewConnection] {
 type TunnelRequest struct {
 	Protocol  string
 	AuthToken string
+	Subdomain string
 }
 
 type TunnelCreated struct {

@@ -8,6 +8,7 @@ import (
 	"log"
 	"net"
 	"os"
+	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -17,6 +18,8 @@ import (
 	"github.com/ametow/xpos/relay/server"
 	"github.com/ametow/xpos/relay/tunnel"
 )
+
+var subdomainPattern = regexp.MustCompile(`^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$`)
 
 type Xpos struct {
 	hostname      string
@@ -80,20 +83,27 @@ func (x *Xpos) handleEventServer(conn net.Conn) error {
 	if req.Data.Protocol != constants.TCP && req.Data.Protocol != constants.HTTP {
 		return events.WriteError(conn, "invalid protocol %s", req.Data.Protocol)
 	}
+	if req.Data.Protocol != constants.HTTP && req.Data.Subdomain != "" {
+		return events.WriteError(conn, "custom subdomains are only supported for http tunnels")
+	}
 
 	user, err := x.authenticator.Authenticate(req.Data.AuthToken)
 	if err != nil {
 		return events.WriteError(conn, "authentication failed %s", "\n\trequest auth token from https://xpos-it.com/auth\n")
 	}
 
-	hostname := fmt.Sprintf("%s.%s", user.Login, x.hostname)
+	subdomain, err := resolveSubdomain(user.Login, req.Data.Subdomain)
+	if err != nil {
+		return events.WriteError(conn, "%s", err.Error())
+	}
+	hostname := fmt.Sprintf("%s.%s", subdomain, x.hostname)
 
 	var tn tunnel.Tunnel
 	switch req.Data.Protocol {
 	case constants.HTTP:
 		_, ok := x.httpTunnels.Load(hostname)
 		if ok {
-			return events.WriteError(conn, "subdomain is busy: %s, try another one", user.Login)
+			return events.WriteError(conn, "subdomain is busy: %s, try another one", subdomain)
 		}
 		tn = tunnel.NewHttpTunnel(hostname, conn)
 		x.httpTunnels.Store(hostname, tn)
@@ -129,6 +139,18 @@ func (x *Xpos) handleEventServer(conn net.Conn) error {
 		}
 	}
 
+}
+
+func resolveSubdomain(username, requested string) (string, error) {
+	if requested == "" {
+		return strings.ToLower(username), nil
+	}
+
+	subdomain := strings.ToLower(requested)
+	if !subdomainPattern.MatchString(subdomain) {
+		return "", fmt.Errorf("invalid subdomain %q: use 1-63 letters, numbers, or hyphens; it cannot start or end with a hyphen", requested)
+	}
+	return subdomain, nil
 }
 
 func (x *Xpos) handleHttpGateway(con net.Conn) error {

@@ -22,6 +22,14 @@ Expose your local server on port 3000:
 xpos http 3000
 ```
 
+Use `--subdomain` (or `-s`) to request a custom subdomain:
+
+```shell
+xpos http 3000 --subdomain my-demo
+```
+
+This exposes the service at `https://my-demo.xpos-it.com` when the subdomain is available.
+
 ## Start TCP Tunnel
 
 Expose an SSH server on port 22:

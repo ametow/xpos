@@ -11,7 +11,7 @@ import (
 	"github.com/ametow/xpos/events"
 )
 
-func tcpHttpCommand(protocol, port string) {
+func tcpHttpCommand(protocol, port, subdomain string) {
 	var conf config.Config
 	if err := conf.Load(); err != nil {
 		fmt.Println(err)
@@ -24,9 +24,7 @@ func tcpHttpCommand(protocol, port string) {
 	}
 	defer conn.Close()
 
-	request := events.NewTunnelRequestEvent()
-	request.Data.Protocol = protocol
-	request.Data.AuthToken = conf.Local.AuthToken
+	request := newTunnelRequest(protocol, conf.Local.AuthToken, subdomain)
 
 	err = request.Write(conn)
 	if err != nil {
@@ -69,4 +67,12 @@ func tcpHttpCommand(protocol, port string) {
 		}()
 	}
 
+}
+
+func newTunnelRequest(protocol, authToken, subdomain string) *events.Event[events.TunnelRequest] {
+	request := events.NewTunnelRequestEvent()
+	request.Data.Protocol = protocol
+	request.Data.AuthToken = authToken
+	request.Data.Subdomain = subdomain
+	return request
 }
